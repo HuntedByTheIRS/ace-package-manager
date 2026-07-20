@@ -44,6 +44,13 @@ pub mut:
 	pacman_mode bool   // --pacman   use pacman paths (config, dbpath, etc.)
 	transfer    bool   // --transfer migrate pacman data to ace native directories
 	all_optional bool  // --all-optional  install all optional deps
+	libs         bool  // --libs          check library-level deps and install providers
+	extreme_libs bool  // --extreme-libs  cross-reference with ldconfig -p for library needs
+	ignore_groups []string // --ignoregroup  groups to ignore during upgrades
+	color         string   // --color        <auto|never|always>
+	noprogressbar bool     // --noprogressbar
+	disable_dl_timeout bool // --disable-download-timeout
+	disable_sandbox    bool // --disable-sandbox
 	deptree      bool  // --deptree       show dependency tree
 	show_history bool  // --history       show transaction history
 	keyring_init     bool   // --keyring-init   initialize GPG keyring
@@ -68,11 +75,11 @@ pub mut:
 	query_upgrades   bool   // -u / --upgrades
 	quiet            bool   // -q / --quiet (per-operation for -Q)
 	// --- Remove (-R) flags ---
-	recursive   bool // -s  remove dependencies too
+	recursive   int  // -s  count: 1=recurse deps, 2=recurse all (including explicit)
 	cascading   bool // -c  remove packages that depend on targets
 	nosave      bool // -n  don't save modified config files
 	unneeded    bool // -u  remove unneeded orphans
-	nodeps      bool // -d  skip dependency checks
+	nodeps      int  // -d  count: 1=skip version checks, 2=skip all dep checks
 	dbonly      bool // --dbonly  remove DB entry only (leave files)
 	noscriptlet bool // --noscriptlet  don't run install scripts
 	print       bool // --print  dry-run
@@ -129,6 +136,15 @@ pub fn print_usage() {
 	println('  --pacman         Use pacman-compatible paths (config, dbpath, etc.)')
 	println('  --transfer       Migrate pacman data to ace native directories')
 	println('  --all-optional   Install all optional dependencies')
+	println('  --libs           Check library-level dependencies and install providers')
+	println('  --extreme-libs   Cross-reference with ldconfig for implicit library needs')
+	println('  --sysupgrade     Same as -Su (upgrade all packages)')
+	println('  --search         Same as -Ss (search sync databases)')
+	println('  --ignoregroup <group> Ignore a package group during upgrade')
+	println('  --color <when>   Color output: auto, never, always')
+	println('  --noprogressbar  Disable progress bars')
+	println('  --disable-download-timeout  Disable download timeouts')
+	println('  --disable-sandbox           Disable download sandboxing')
 	println('  --deptree        Show recursive dependency tree for a package')
 	println('  --history        Show human-readable transaction history')
 	println('  --keyring-init   Initialize a fresh GPG keyring')
@@ -256,6 +272,21 @@ pub fn parse_args_from(raw []string) CliArgs {
 			continue
 		}
 
+		if arg == '--color' {
+			i++
+			if i < raw.len {
+				val := raw[i]
+				if val == 'auto' || val == 'never' || val == 'always' {
+					args.color = val
+				} else {
+					eprintln('warning: invalid --color value "${val}", using auto')
+					args.color = 'auto'
+				}
+			}
+			i++
+			continue
+		}
+
 		if arg == '--noconfirm' {
 			args.noconfirm = true
 			i++
@@ -286,14 +317,44 @@ pub fn parse_args_from(raw []string) CliArgs {
 			continue
 		}
 
+		if arg == '--disable-download-timeout' {
+			args.disable_dl_timeout = true
+			i++
+			continue
+		}
+		if arg == '--disable-sandbox' {
+			args.disable_sandbox = true
+			i++
+			continue
+		}
+
 		if arg == '--all-optional' {
 			args.all_optional = true
 			i++
 			continue
 		}
 
+		if arg == '--libs' {
+			args.libs = true
+			i++
+			continue
+		}
+
+		if arg == '--extreme-libs' {
+			args.extreme_libs = true
+			i++
+			continue
+		}
+
 		if arg == '--deptree' {
 			args.deptree = true
+			i++
+			continue
+		}
+
+		if arg == '--search' {
+			args.operation = .sync
+			args.sync_search = true
 			i++
 			continue
 		}
@@ -322,12 +383,29 @@ pub fn parse_args_from(raw []string) CliArgs {
 		if arg == '--debug' || arg.starts_with('--debug=') {
 			if arg.starts_with('--debug=') {
 				level_str := arg['--debug='.len..]
-				args.debug = if level_str.len > 0 { level_str.int() } else { 1 }
+				if level_str.len > 0 {
+					val := level_str.int()
+					if level_str.starts_with('-') || (val == 0 && level_str != '0') {
+						eprintln('warning: --debug value "${level_str}" is not valid, using 1')
+						args.debug = 1
+					} else {
+						args.debug = val
+					}
+				} else {
+					args.debug = 1
+				}
 			} else {
 				// --debug optionally followed by a level as next token
 				if i + 1 < raw.len {
-					i++
-					args.debug = raw[i].int()
+					val_str := raw[i + 1]
+					val := val_str.int()
+					if val_str.starts_with('-') || (val == 0 && val_str != '0') {
+						args.debug = 1
+						// Don't consume the next arg if it looks like a flag
+					} else {
+						i++
+						args.debug = val
+					}
 				} else {
 					args.debug = 1
 				}
@@ -365,7 +443,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 					`s` { args.query_search = true }
 					`t` { args.query_unrequired++ }
 					`u` { args.query_upgrades = true }
-					else {}
+					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
 				}
 			}
 			// Set query_op for test backward compat
@@ -392,12 +470,12 @@ pub fn parse_args_from(raw []string) CliArgs {
 			// Parse sub-flags from the remainder after 'R'
 			for j := 2; j < arg.len; j++ {
 				match arg[j] {
-					`s` { args.recursive = true }
+					`s` { args.recursive++ }
 					`c` { args.cascading = true }
 					`n` { args.nosave = true }
 					`u` { args.unneeded = true }
-					`d` { args.nodeps = true }
-					else {}
+					`d` { args.nodeps++ }
+					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
 				}
 			}
 			i++
@@ -435,7 +513,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 					`l` { args.sync_list = true }
 					`g` { args.sync_group++ }
 					`q` { args.quiet = true }
-					else {}
+					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
 				}
 			}
 			i++
@@ -452,7 +530,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 				match arg[j] {
 					`k` { args.database_check++ }
 					`q` { args.quiet = true }
-					else {}
+					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
 				}
 			}
 			i++
@@ -471,7 +549,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 					`y` { args.files_refresh++ }
 					`x` { args.files_regex = true }
 					`q` { args.quiet = true }
-					else {}
+					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
 				}
 			}
 			i++
@@ -493,6 +571,11 @@ pub fn parse_args_from(raw []string) CliArgs {
 		}
 		if arg == '--print' {
 			args.print = true
+			i++
+			continue
+		}
+		if arg == '--noprogressbar' {
+			args.noprogressbar = true
 			i++
 			continue
 		}
@@ -536,6 +619,20 @@ pub fn parse_args_from(raw []string) CliArgs {
 			i++
 			continue
 		}
+		if arg == '--sysupgrade' {
+			args.operation = .sync
+			args.sync_upgrade++
+			i++
+			continue
+		}
+		if arg == '--ignoregroup' {
+			i++
+			if i < raw.len {
+				args.ignore_groups << raw[i]
+			}
+			i++
+			continue
+		}
 
 		// ------------------------------------------------------------
 		// Long options for -D  (database)
@@ -570,8 +667,9 @@ pub fn parse_args_from(raw []string) CliArgs {
 			continue
 		}
 
-		// Unrecognized flags are skipped
+		// Unrecognized flags — warn but don't error (pacman compatibility).
 		if arg.starts_with('-') {
+			eprintln('warning: unknown option ${arg}')
 			i++
 			continue
 		}
@@ -579,6 +677,33 @@ pub fn parse_args_from(raw []string) CliArgs {
 		// Positional argument
 		args.targets << arg
 		i++
+	}
+
+	// Expand "-" tokens in targets: read package names from stdin.
+	// Matches pacman behavior: echo "pkg1" | ace -S -
+	if os.is_atty(0) == 0 {
+		// Check if ANY target is "-"
+		mut has_dash := false
+		for t in args.targets {
+			if t == '-' { has_dash = true; break }
+		}
+		if has_dash {
+			stdin_lines := os.get_lines()
+			mut expanded := []string{}
+			for target in args.targets {
+				if target == '-' {
+					for line in stdin_lines {
+						trimmed := line.trim_space()
+						if trimmed.len > 0 {
+							expanded << trimmed
+						}
+					}
+				} else {
+					expanded << target
+				}
+			}
+			args.targets = expanded
+		}
 	}
 
 	return args

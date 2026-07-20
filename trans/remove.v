@@ -31,7 +31,7 @@ pub enum RemoveFlags {
 	recurseall // like recurse, also consider optdepends
 	unneeded   // skip removal if the package is needed by another
 	nosave     // do not create .pacsave backups
-	noscriplet // do not execute install scriptlets
+	noscriptlet // do not execute install scriptlets
 	dbonly     // only remove from database, keep files on disk
 }
 
@@ -533,14 +533,14 @@ fn sort_remove_order(pkgs []&db.Package) ?[]&db.Package {
 // Reference: pacman _alpm_remove_single_package (remove.c:685-754).
 fn remove_single_package(root string, dbpath string, pkg &db.Package, flags RemoveFlags,
 	mut localdb db.Database) ! {
-	noscriplet := flags.has(.noscriplet)
+	noscriptlet := flags.has(.noscriptlet)
 	dbonly := flags.has(.dbonly)
 
 	// Resolve the full database path: root may differ from / when --root is used.
 	resolved_dbpath := os.join_path(root, dbpath)
 
 	// --- Pre-remove scriptlet ---
-	if !noscriplet && pkg.scriptlet {
+	if !noscriptlet && pkg.scriptlet {
 		run_remove_scriptlet(root, resolved_dbpath, pkg, 'pre_remove')
 	}
 
@@ -559,7 +559,7 @@ fn remove_single_package(root string, dbpath string, pkg &db.Package, flags Remo
 	// (log action is informational; no separate log module yet)
 
 	// --- Post-remove scriptlet ---
-	if !noscriplet && pkg.scriptlet {
+	if !noscriptlet && pkg.scriptlet {
 		run_remove_scriptlet(root, resolved_dbpath, pkg, 'post_remove')
 	}
 

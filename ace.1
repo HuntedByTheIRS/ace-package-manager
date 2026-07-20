@@ -68,7 +68,7 @@ Refresh package databases.
 Force refresh (even if up to date).
 .TP
 \fB\-Ss\fR \fIregex\fR
-Search sync databases.
+Search sync databases.  Long form: \fB\-\-search\fR.
 .TP
 \fB\-Si\fR \fIpkg\fR
 Show remote package information.
@@ -77,7 +77,7 @@ Show remote package information.
 List packages in sync databases.
 .TP
 \fB\-Su\fR
-Upgrade all installed packages.
+Upgrade all installed packages.  Long form: \fB\-\-sysupgrade\fR.
 .TP
 \fB\-Suu\fR
 Upgrade allowing downgrades.
@@ -106,6 +106,9 @@ Remove packages.
 \fB\-Rs\fR
 Remove with unneeded dependencies.
 .TP
+\fB\-Rss\fR
+Remove with ALL dependencies (including explicitly installed ones).
+.TP
 \fB\-Rc\fR
 Cascade: remove packages depending on targets.
 .TP
@@ -115,12 +118,22 @@ No .pacsave backups for modified config files.
 \fB\-Ru\fR
 Remove unneeded orphans.
 .TP
+\fB\-Rd\fR
+Skip dependency version checks.
+.TP
+\fB\-Rdd\fR
+Skip ALL dependency checks.
+.TP
 \fB\-\-print\fR
-Dry-run: show what would be removed.
+Dry-run: show what would be removed.  Skips lock acquisition and
+confirmation prompts automatically.
 .TP
 \fB\-\-dbonly\fR
-Only remove database entry, keep files on disk.
-.RE
+Only remove database entry, keep files on disk.  Implies
+\fB\-\-noscriptlet\fR (install scripts are not run).
+.TP
+\fB\-\-noscriptlet\fR
+Do not run install scriptlets during package operations.
 
 .TP
 \fB\-U\fR, \fB\-\-upgrade\fR
@@ -208,13 +221,22 @@ Colour-coded markers: green [INSTALL], yellow [REMOVE], crimson [UPGRADE].
 When installing, also install all optional dependencies alongside
 the target package.
 .TP
-\fB\-\-keyring\-init\fR
-Initialize a fresh GPG keyring at the configured GPGDir. Creates the
-directory, trust database, and an ACE master signing key.
+\fB\-\-libs\fR
+Check library-level dependencies for all packages being installed and
+automatically mark packages that provide needed shared libraries.
+Uses the sync database \fB%PROVIDES%\fR metadata to build a library-to-package
+reverse index and resolve implicit provider relationships.  Results are cached
+at \fI{dbpath}/cache/libcheck_cache\fR for speed on subsequent runs; the cache
+is invalidated when sync databases are refreshed (\fB\-Sy\fR).  Prioritises
+speed over exhaustive accuracy.
 .TP
-\fB\-\-keyring\-populate\fR \fIname\fR
-Import trusted keys from a keyring package into the configured GPG
-directory. Equivalent to \fBpacman-key \-\-populate\fR.
+\fB\-\-extreme\-libs\fR
+Cross-reference library needs against the system's \fBldconfig\fR(8) cache.
+Shells out to \fBldconfig -p\fR to discover installed libraries, then
+matches them against sync database provides to find missing providers.
+Always runs fresh (bypasses the \fB\-\-libs\fR cache) for maximum accuracy
+regardless of speed.  Reflects only the current system state; not suitable
+for chroot or \fB\-\-root\fR operations on different systems.
 .TP
 \fB\-\-keyring\-init\fR
 Initialize a fresh GPG keyring at the configured GPGDir. Creates the
@@ -245,6 +267,29 @@ Set an alternate package cache directory (may be repeated).
 .TP
 \fB\-\-logfile\fR \fIpath\fR
 Set an alternate log file path.
+.TP
+\fB\-\-sysupgrade\fR
+Long form of \fB\-Su\fR: upgrade all installed packages.  Repeat for \fB\-Suu\fR.
+.TP
+\fB\-\-search\fR
+Long form of \fB\-Ss\fR: search sync databases.  The search term is taken
+from positional arguments.
+.TP
+\fB\-\-ignoregroup\fR \fIgroup\fR
+Ignore a package group during upgrades (repeatable).  Overrides any
+\fBIgnoreGroup\fR entries in the configuration file.
+.TP
+\fB\-\-color\fR \fIwhen\fR
+Control coloured output: \fBauto\fR (default), \fBnever\fR, or \fBalways\fR.
+.TP
+\fB\-\-noprogressbar\fR
+Suppress progress bars during package extraction.
+.TP
+\fB\-\-disable\-download\-timeout\fR
+Disable download timeouts for slow connections.
+.TP
+\fB\-\-disable\-sandbox\fR
+Disable download sandboxing.
 
 .SH EXAMPLES
 .TP
@@ -319,8 +364,10 @@ cp /var/lib/ace/sync/*.db /mnt/arch/var/lib/ace/sync/
 .RE
 
 .SH HOOKS
-Ace runs post-transaction hooks after every install (\fB\-S\fR, \fB\-U\fR) and
-remove (\fB\-R\fR) operation. Hooks are defined as
+Ace runs pre-transaction hooks before installation begins and post-transaction
+hooks after every install (\fB\-S\fR, \fB\-U\fR) and remove (\fB\-R\fR) operation.
+In addition, per-package post-install hooks fire after each individual package
+is successfully extracted. Hooks are defined as
 .B .hook
 files in the configured
 .B HookDir
@@ -382,6 +429,10 @@ Synchronized repository databases (native mode).
 .TP
 .I /var/lib/pacman/local/
 Local package database (--pacman mode).
+.TP
+.I {dbpath}/cache/libcheck_cache
+Library dependency resolution cache (--libs).  Stale entries are
+automatically invalidated when sync databases are refreshed.
 .TP
 .I /var/log/ace.log
 Transaction log.

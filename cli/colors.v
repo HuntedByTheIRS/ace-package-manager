@@ -15,22 +15,45 @@ pub const reset  = '${esc}[0m'
 pub const bold   = '${esc}[1m'
 pub const dim    = '${esc}[2m'
 
-// 256-color palette — crimson / deep red family
+// 256-color palette — crimson / deep red family + complementary accents
 pub const red        = '${esc}[38;5;196m'  // bright red
 pub const crimson    = '${esc}[38;5;160m'  // deep crimson (#d70000)
 pub const dark_red   = '${esc}[38;5;124m'  // dark red (#af0000)
 pub const maroon     = '${esc}[38;5;88m'   // deep maroon
+pub const orange     = '${esc}[38;5;208m'  // warm orange (#ff8700)
+pub const dark_green = '${esc}[38;5;28m'   // deep forest green (#008700)
+pub const soft_green = '${esc}[38;5;35m'   // soft green
+pub const light_pink = '${esc}[38;5;211m'  // soft pink (#ff87af)
 pub const white      = '${esc}[38;5;255m'  // near-white
 pub const gray       = '${esc}[38;5;245m'  // medium gray
 pub const dark_gray  = '${esc}[38;5;240m'  // dark gray
 pub const green      = '${esc}[38;5;76m'   // success green
 pub const yellow     = '${esc}[38;5;220m'  // warning yellow
 
+// --- Raw ANSI codes for bright backgrounds (used sparingly) ---
+
+pub const bg_crimson = '${esc}[48;5;160m'
+
 // --- Semantic helpers ---
 
-// pkg formats a package name-version string.
+// pkg formats a package name string (bold crimson — primary branding).
 pub fn pkg(s string) string {
 	return '${bold}${crimson}${s}${reset}'
+}
+
+// pkg_version formats a version string (crimson, no bold).
+pub fn pkg_version(s string) string {
+	return '${crimson}${s}${reset}'
+}
+
+// installed formats an already-installed indicator (dark green).
+pub fn installed(s string) string {
+	return '${dark_green}${s}${reset}'
+}
+
+// new_pkg formats a new package indicator (light pink).
+pub fn new_pkg(s string) string {
+	return '${light_pink}${s}${reset}'
 }
 
 // repo formats a repository name.
@@ -63,7 +86,7 @@ pub fn muted(s string) string {
 	return '${gray}${s}${reset}'
 }
 
-// version formats a version string.
+// version_str formats a version string.
 pub fn version_str(s string) string {
 	return '${crimson}${s}${reset}'
 }
@@ -76,4 +99,27 @@ pub fn arrow() string {
 // bullet returns a styled bullet point.
 pub fn bullet() string {
 	return '${crimson}•${reset}'
+}
+
+// progress formats download/install progress (orange).
+pub fn progress(s string) string {
+	return '${orange}${s}${reset}'
+}
+
+// counter formats a numeric counter (bold orange — "Downloaded 3/10").
+pub fn counter(s string) string {
+	return '${bold}${orange}${s}${reset}'
+}
+
+// upgrade formats an upgrade indicator ("1.0 -> 2.0").
+pub fn upgrade(from string, to string) string {
+	return '${crimson}${from}${reset} ${arrow()} ${light_pink}${to}${reset}'
+}
+
+// opt_dep formats an optional dependency entry.
+pub fn opt_dep(name string, desc string) string {
+	if desc != '' {
+		return '${light_pink}${name}${reset}${gray}: ${desc}${reset}'
+	}
+	return '${light_pink}${name}${reset}'
 }

@@ -51,8 +51,11 @@ pub fn run_remove(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 	if args.cascading {
 		flags |= trans.RemoveFlags.cascade
 	}
-	if args.recursive {
+	if args.recursive >= 1 {
 		flags |= trans.RemoveFlags.recurse
+	}
+	if args.recursive >= 2 {
+		flags |= trans.RemoveFlags.recurseall
 	}
 	if args.unneeded {
 		flags |= trans.RemoveFlags.unneeded
@@ -61,10 +64,20 @@ pub fn run_remove(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 		flags |= trans.RemoveFlags.nosave
 	}
 	if args.noscriptlet {
-		flags |= trans.RemoveFlags.noscriplet
+		flags |= trans.RemoveFlags.noscriptlet
 	}
 	if args.dbonly {
+		flags |= trans.RemoveFlags.noscriptlet // --dbonly implies --noscriptlet
 		flags |= trans.RemoveFlags.dbonly
+	}
+
+	// --- HoldPkg enforcement: block removal of held packages ---
+	if cfg.holdpkg.len > 0 {
+		for target in args.targets {
+			if cfg.holdpkg.contains(target) {
+				return error('${target} is in HoldPkg — refusing to remove')
+			}
+		}
 	}
 
 	// --- Print mode (dry-run) ---
@@ -84,9 +97,11 @@ pub fn run_remove(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 	}
 
 	// --- Confirmation prompt ---
-	if !confirm_remove(args.targets, &local_db) {
-		println('cancelled')
-		return
+	if !args.noconfirm {
+		if !confirm_remove(args.targets, &local_db) {
+			println('cancelled')
+			return
+		}
 	}
 
 	// --- Remove each target ---

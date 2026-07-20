@@ -43,9 +43,11 @@ pub fn run_sync(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 	}
 
 	// 3. Acquire database lock for operations that modify state.
-	// Query operations (search, info, list, groups) skip the lock.
-	needs_lock := args.sync_count > 0 || args.sync_clean > 0 || args.targets.len > 0 ||
-		args.sync_upgrade > 0 || args.download_only
+	// Query operations (search, info, list, groups) and --print skip the lock.
+	needs_lock := (args.sync_count > 0 || args.sync_clean > 0 || args.sync_upgrade > 0 ||
+		args.download_only || args.targets.len > 0) &&
+		!args.sync_search && args.sync_info == 0 && !args.sync_list && args.sync_group == 0 &&
+		!args.print
 
 	mut lf := LockFile{}
 	if needs_lock {
@@ -167,8 +169,11 @@ fn refresh_databases(sync_count int, repos []config.Repo, sync_dir string) ! {
 		}
 	}
 
+	if errors.len == repos.len {
+		return error('failed to sync all databases: ${errors.join("; ")}')
+	}
 	if errors.len > 0 {
-		return error('failed to sync databases: ${errors.join("; ")}')
+		eprintln(warn('some databases failed to sync: ${errors.join("; ")}'))
 	}
 }
 
@@ -214,7 +219,9 @@ fn repo_sync(repo config.Repo, sync_dir string, force bool) ! {
 
 		// Log the successful sync timestamp.
 		now := time.unix_now()
-		os.write_file(os.join_path(sync_dir, '${treename}.lastupdate'), '${now}\n') or {}
+		os.write_file(os.join_path(sync_dir, '${treename}.lastupdate'), '${now}\n') or {
+			eprintln(warn('cannot write .lastupdate for ${treename}: ${err}'))
+		}
 		return
 	}
 
@@ -276,13 +283,30 @@ fn load_sync_dbs(repos []config.Repo, sync_dir string) ![]&db.Database {
 // -Sc:  selective removal — respects CleanMethod (KeepInstalled / KeepCurrent)
 // -Scc: removes ALL cached package files regardless of CleanMethod
 fn sync_clean(level int, cfg &config.Config, handle &util.Handle) ! {
+	// Detect piped/non-TTY stdin for confirmation prompts.
+	stdin_tty := os.is_atty(0) != 0
+
 	if level == 1 {
 		// -Sc: Determine clean method from config.
-		keep_installed := cfg.cleanmethod == .keep_installed || (cfg.cleanmethod != .keep_current)
-		keep_current := cfg.cleanmethod == .keep_current
+		mut keep_installed := true
+		mut keep_current := false
+		match cfg.cleanmethod {
+			.keep_installed {
+				keep_installed = true
+				keep_current = false
+			}
+			.keep_current {
+				keep_installed = false
+				keep_current = true
+			}
+		}
 
 		// Prompt before selective cleaning.
 		if !handle.no_confirm {
+			if !stdin_tty {
+				eprintln(warn('stdin is not a terminal; use --noconfirm to skip prompts'))
+				return error('cannot confirm cache cleaning on non-interactive terminal')
+			}
 			print('Do you want to remove all other packages from cache? [Y/n] ')
 			response := os.input('').trim_space().to_lower()
 			if response != '' && response != 'y' && response != 'yes' {
@@ -295,6 +319,10 @@ fn sync_clean(level int, cfg &config.Config, handle &util.Handle) ! {
 	} else {
 		// -Scc: Remove ALL — unconditionally pass both flags as false.
 		if !handle.no_confirm {
+			if !stdin_tty {
+				eprintln(warn('stdin is not a terminal; use --noconfirm to skip prompts'))
+				return error('cannot confirm cache cleaning on non-interactive terminal')
+			}
 			print('Do you want to remove ALL files from cache? [y/N] ')
 			response := os.input('').trim_space().to_lower()
 			if response != 'y' && response != 'yes' {
@@ -650,6 +678,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		root:            root
 		dbpath:          handle_dbpath
 		overwrite_files: args.overwrite_files
+		hookedirs:       if args.hookdirs.len > 0 { args.hookdirs.clone() } else { cfg.hookdirs.clone() }
 	}
 
 	// 3. Open local database.
@@ -669,6 +698,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 
 	mut ignoregroups := []string{}
 	ignoregroups << cfg.ignoregroups
+	ignoregroups << args.ignore_groups
 
 	resolve_hnd := &trans.ResolveHandle{
 		ignorepkgs:   ignorepkgs
@@ -677,11 +707,15 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 
 	// 5. Set up transaction flags.
 	mut trans_flags := 0
-	if args.nodeps {
+	if args.nodeps >= 1 {
+		trans_flags |= trans.trans_flag_nodepversion
+	}
+	if args.nodeps >= 2 {
 		trans_flags |= trans.trans_flag_nodeps
 	}
 	if args.dbonly {
 		trans_flags |= trans.trans_flag_dbonly
+		trans_flags |= trans.trans_flag_noscriptlet // --dbonly implies --noscriptlet
 	}
 	if args.noscriptlet {
 		trans_flags |= trans.trans_flag_noscriptlet
@@ -788,9 +822,18 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 						if pkg_names_added[opt.name] {
 							continue
 						}
-						if opt_pkg := sdb.pkgcache[opt.name] {
-							pkg_targets << opt_pkg
-							pkg_names_added[opt.name] = true
+						// Search ALL sync DBs for the optional dep.
+						mut found_opt := false
+						for opt_sdb in syncdbs {
+							if opt_pkg := opt_sdb.pkgcache[opt.name] {
+								pkg_targets << opt_pkg
+								pkg_names_added[opt.name] = true
+								found_opt = true
+								break
+							}
+						}
+						if !found_opt {
+							eprintln(warn('optional dependency ${opt.name} not found in any repository'))
 						}
 					}
 				}
@@ -827,6 +870,91 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 
 	if errors.len > 0 {
 		return error(errors.join('; '))
+	}
+
+	// 6c. --libs & --extreme-libs: build library index once, then resolve.
+	// Share LibCheck to avoid double construction when both flags are set.
+	mut libcheck_shared := if args.libs || args.extreme_libs {
+		mut lc := trans.new_lib_check(syncdbs)
+		lc.init_cache(dbpath) or {
+			eprintln(warn('cannot init libcheck cache: ${err}'))
+		}
+		lc
+	} else {
+		trans.LibCheck{}
+	}
+
+	// 6c-i. --libs: fast path — uses cache for speed, less accurate.
+	if args.libs {
+		println(heading_str('Resolving library dependencies (cached)...'))
+
+		// Collect current target names for the resolver.
+		mut current_names := []string{}
+		for p in pkg_targets {
+			current_names << p.name
+		}
+
+		// Resolve via cached fast path — checks cache first, resolves
+		// only uncached packages, stores results back.
+		extra_libs := libcheck_shared.resolve_libs_cached(current_names, syncdbs)
+		for lib_pkg_name in extra_libs {
+			if pkg_names_added[lib_pkg_name] {
+				continue
+			}
+			mut found := false
+			for sdb in syncdbs {
+				if p := sdb.pkgcache[lib_pkg_name] {
+					pkg_targets << p
+					pkg_names_added[lib_pkg_name] = true
+					found = true
+					println('  adding ${lib_pkg_name} (cached library provider)')
+					break
+				}
+			}
+			if !found {
+				eprintln('  warning: library provider ${lib_pkg_name} not found in sync databases')
+			}
+		}
+		if extra_libs.len == 0 {
+			println('  no additional library providers needed')
+		}
+		println('')
+	}
+
+	// 6c-ii. --extreme-libs: always fresh ldconfig — maximum accuracy.
+	if args.extreme_libs {
+		println(heading_str('Cross-referencing with installed libraries (ldconfig, fresh)...'))
+
+		// Collect current target names for the resolver.
+		mut current_names := []string{}
+		for p in pkg_targets {
+			current_names << p.name
+		}
+
+		// Resolve via fresh ldconfig cross-reference — bypasses cache.
+		extreme_libs := libcheck_shared.resolve_libs_ldconfig_uncached(current_names, syncdbs)
+		for lib_pkg_name in extreme_libs {
+			if pkg_names_added[lib_pkg_name] {
+				continue
+			}
+			mut found := false
+			for sdb in syncdbs {
+				if p := sdb.pkgcache[lib_pkg_name] {
+					pkg_targets << p
+					pkg_names_added[lib_pkg_name] = true
+					found = true
+					println('  adding ${lib_pkg_name} (fresh ldconfig provider)')
+					break
+				}
+			}
+			if !found {
+				eprintln('  warning: ldconfig provider ${lib_pkg_name} not found in sync databases')
+			}
+		}
+		if extreme_libs.len == 0 {
+			println('  no additional providers found via ldconfig')
+		}
+		println('')
 	}
 
 	if pkg_targets.len == 0 {
@@ -873,16 +1001,11 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	// 9. Print mode (--print).
 	if args.print {
 		println('Packages to install/upgrade:')
-		for pkg in display_pkgs {
-			old := if installed := localdb.pkgcache[pkg.name] {
-				installed.version
+		for dpkg in display_pkgs {
+			if old := localdb.pkgcache[dpkg.name] {
+				println('  ${pkg(dpkg.name)} ${upgrade(old.version, dpkg.version)}')
 			} else {
-				''
-			}
-			if old != '' {
-				println('  ${pkg.name} (${old} -> ${pkg.version})')
-			} else {
-				println('  ${pkg.name} ${pkg.version}')
+				println('  ${new_pkg(dpkg.name)} ${light_pink}${dpkg.version}${reset}')
 			}
 		}
 		return
@@ -894,9 +1017,43 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		println('resolving dependencies...')
 		println('looking for conflicting packages...')
 		println('')
-		println(pkg_head('Packages') + ' (${display_pkgs.len}) ${pkg_str(display_pkgs[0].name)}-${sync_ver(display_pkgs[0].version)}')
-		for i := 1; i < display_pkgs.len; i++ {
-			println('             ${pkg_str(display_pkgs[i].name)}-${sync_ver(display_pkgs[i].version)}')
+		println(pkg('Packages') + ' (${display_pkgs.len}):')
+		for dpkg in display_pkgs {
+			if old := localdb.pkgcache[dpkg.name] {
+				println('  ${pkg(dpkg.name)} ${installed('[installed: ${old.version}]')} ${arrow()} ${new_pkg(dpkg.version)}')
+			} else {
+				println('  ${new_pkg(dpkg.name)}-${pkg_version(dpkg.version)}')
+			}
+		}
+
+		// Show optional dependencies for each package that has them.
+		mut has_optdeps := false
+		for dpkg in display_pkgs {
+			if dpkg.optdepends.len > 0 {
+				has_optdeps = true
+				break
+			}
+		}
+		if has_optdeps {
+			println('')
+			println(muted('Optional dependencies:'))
+			for dpkg in display_pkgs {
+				if dpkg.optdepends.len == 0 {
+					continue
+				}
+				for opt in dpkg.optdepends {
+					installed_mark := if _ := localdb.pkgcache[opt.name] {
+						' ${installed('[installed]')}'
+					} else {
+						''
+					}
+					if opt.desc != '' {
+						println('  ${opt_dep(opt.name, opt.desc)}${installed_mark}')
+					} else {
+						println('  ${opt_dep(opt.name, '')}${installed_mark}')
+					}
+				}
+			}
 		}
 
 		mut total_download_size := i64(0)
@@ -918,7 +1075,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		}
 	}
 	println('')
-	if !handle.no_confirm {
+	if !handle.no_confirm && !args.print {
 		confirm_prompt := if args.download_only {
 			':: Proceed with download? [Y/n] '
 		} else {
@@ -936,7 +1093,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	if syncdbs.len > 0 && display_pkgs.len > 0 {
 		// Determine cache directory.
 		cachedir := if cfg.cachedirs.len > 0 {
-			os.join_path(cfg.rootdir, cfg.cachedirs[0])
+			os.join_path(root, cfg.cachedirs[0])
 		} else {
 			os.join_path(root, 'var/cache/ace/pkg')
 		}
@@ -1013,8 +1170,15 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		os.mkdir_all(cachedir2)!
 	}
 
+	// 13a. Run pre-transaction hooks before any package installation.
+	run_pre_hooks(handle, display_pkgs, []&db.Package{})
+
 	for i in 0 .. display_pkgs.len {
 		p := display_pkgs[i]
+		if p.filename == '' {
+			install_errors << '${p.name}: missing filename, cannot install'
+			continue
+		}
 		pkg_path := os.join_path(cachedir2, p.filename)
 
 		// If the package file doesn't exist in cache, try a direct download
@@ -1035,7 +1199,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 			}
 			if server_url != '' {
 				mut dl := download.Downloader{}
-				dl.init('ace/0.1', 30000, unsafe { nil })
+				dl.init('ace/0.1', 60000, fn (pct int, msg string) {})
 				dl.download(download.DownloadPayload{
 					url:       server_url
 					filename:  p.filename
@@ -1089,6 +1253,9 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 			continue
 		}
 		localdb.pkgcache[p.name] = install_pkg
+
+		// Run post-install hooks for this specific package.
+		run_post_install_hook(handle, install_pkg)
 	}
 
 	if install_errors.len > 0 {
@@ -1101,52 +1268,147 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	println(heading_str('done'))
 }
 
+// DLResult carries per-file download completion status.
+struct DLResult {
+	idx      int
+	filename string
+	ok       bool
+}
+
 // download_parallel_files downloads multiple files concurrently using
-// the download module's parallel downloading infrastructure.
+// goroutines for true parallelism.  Each download runs independently,
+// with per-file completion status and a running counter at the bottom.
+// Semaphore is acquired inside goroutines to prevent slot leaks on panic.
 fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloads int) {
 	if payloads.len == 0 {
 		return
 	}
 
 	max_conc := if parallel_downloads > 0 { parallel_downloads } else { 1 }
+	total := payloads.len
 
-	mut success_count := 0
-	mut error_count := 0
+	// Semaphore channel: pre-fill with max_conc tokens.
+	sem := chan int{cap: max_conc}
+	for _ in 0 .. max_conc {
+		sem <- 0
+	}
+	result_ch := chan DLResult{cap: total}
 
-	// Use a simple sequential approach for now (parallel via goroutines
-	// would be ideal but requires careful channel management here).
+	mut completed := 0
+	mut failures := 0
+
+	println('')
 	for i, payload in payloads {
-		mut dl := download.Downloader{}
-		dl.init('ace/0.1', 60000, fn (pct int, msg string) {
-			if pct >= 0 && pct < 100 {
-				print('\r  ${pct}%')
+		dn := if payload.filename.len > 45 {
+			payload.filename.substr(0, 42) + '...'
+		} else {
+			payload.filename
+		}
+
+		println('  ${dn} downloading...')
+
+		// Spawn goroutine — acquires semaphore internally to prevent
+		// slot leak if the main goroutine is interrupted before spawn.
+		go fn [payload, dn, i, sem, result_ch]() {
+			// Acquire semaphore slot (blocks if max_conc slots busy).
+			_ = <-sem
+			// Release slot on exit (normal, error, or panic).
+			defer {
+				sem <- 0
 			}
-		})
 
-		if i > 0 && i % max_conc == 0 {
-			// Flow control: wait between batches (simplified).
-			println('')
-		}
+			// Always report result, even on panic.
+			mut download_ok := false
+			defer {
+				result_ch <- DLResult{
+					idx: i
+					filename: dn
+					ok: download_ok
+				}
+			}
 
-		print('  ${payload.filename}: downloading... ')
-		dl.download(payload) or {
-			print('failed (${err.msg()})\n')
-			error_count++
-			continue
-		}
-		print('done\n')
-		success_count++
+			mut dl := download.Downloader{}
+			dl.init('ace/0.1', 60000, fn (pct int, msg string) {})
+			dl.download(payload) or { return }
+			download_ok = true
+		}()
 	}
 
-	if error_count > 0 {
-		eprintln('warning: ${error_count}/${payloads.len} downloads failed')
+	// Collect results with per-file status.
+	for _ in 0 .. total {
+		r := <-result_ch
+		completed++
+		if !r.ok {
+			failures++
+			println('  ${completed}/${total} ${r.filename} ${warn('FAILED')}')
+		} else {
+			println('  ${completed}/${total} ${r.filename} ${ok('done')}')
+		}
+	}
+
+	println('')
+	print('  ' + progress('Downloaded: ${completed}/${total}'))
+	if failures > 0 {
+		println('  ' + warn('(${failures} failed)'))
+	} else {
+		println('')
+	}
+
+	if failures > 0 {
+		eprintln(warn('${failures}/${total} downloads failed'))
 	}
 }
 
-fn heading_str(s string) string { return '\033[1m\033[38;5;160m::\033[0m \033[1m${s}\033[0m' }
-fn pkg_str(s string) string { return '\033[1m\033[38;5;160m${s}\033[0m' }
-fn sync_ver(s string) string { return '\033[38;5;160m${s}\033[0m' }
-fn pkg_head(s string) string { return '\033[1m\033[38;5;160m${s}\033[0m' }
+fn heading_str(s string) string { return heading(s) }
+fn pkg_str(s string) string { return pkg(s) }
+fn sync_ver(s string) string { return pkg_version(s) }
+fn pkg_head(s string) string { return pkg(s) }
+
+// run_pre_hooks executes pre-transaction hooks before any package
+// installation begins.  Pre-transaction hooks may abort the transaction
+// if AbortOnFail is set.
+fn run_pre_hooks(handle &util.Handle, add_pkgs []&db.Package, remove_pkgs []&db.Package) {
+	if handle.hookedirs.len == 0 {
+		return
+	}
+	mut engine := hooks.new_hook_engine(handle)
+	mut util_pkgs := []&util.Package{}
+	for p in add_pkgs {
+		util_pkgs << &util.Package{
+			name:    p.name
+			version: p.version
+		}
+	}
+	mut util_rm_pkgs := []&util.Package{}
+	for p in remove_pkgs {
+		util_rm_pkgs << &util.Package{
+			name:    p.name
+			version: p.version
+		}
+	}
+	engine.set_packages(util_pkgs, util_rm_pkgs)
+	engine.run_pre(util_pkgs) or {
+		eprintln('warning: pre-transaction hook failed: ${err}')
+	}
+}
+
+// run_post_install_hook executes post-install hooks for a single package
+// immediately after it has been installed.  This runs PostTransaction
+// hooks whose triggers match this specific package's name.
+fn run_post_install_hook(handle &util.Handle, pkg db.Package) {
+	if handle.hookedirs.len == 0 {
+		return
+	}
+	mut engine := hooks.new_hook_engine(handle)
+	util_pkgs := [&util.Package{
+		name:    pkg.name
+		version: pkg.version
+	}]
+	engine.set_packages(util_pkgs, []&util.Package{})
+	engine.run_post(util_pkgs) or {
+		eprintln('warning: post-install hook for ${pkg.name} failed: ${err}')
+	}
+}
 
 fn run_post_hooks(handle &util.Handle, add_pkgs []&db.Package, _ []&db.Package) {
 	if handle.hookedirs.len == 0 {

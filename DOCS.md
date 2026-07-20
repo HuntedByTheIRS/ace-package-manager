@@ -7,6 +7,8 @@
 - [Dependency Tree](#dependency-tree)
 - [Transaction History](#transaction-history)
 - [Optional Dependencies](#optional-dependencies)
+- [Library Dependency Checking](#library-dependency-checking)
+- [Extreme Library Checking](#extreme-library-checking)
 - [Post-Transaction Hooks](#post-transaction-hooks)
 - [GPG Keyring Management](#gpg-keyring-management)
 - [Progress Bar](#progress-bar)
@@ -15,6 +17,7 @@
 - [Offline / Cache-Only Operations](#offline--cache-only-operations)
 - [Database Integrity](#database-integrity)
 - [Dry-Run and Print Mode](#dry-run-and-print-mode)
+- [Pacman Compatibility Notes](#pacman-compatibility-notes)
 - [Troubleshooting](#troubleshooting)
 - [Internal Architecture Notes](#internal-architecture-notes)
 
@@ -160,11 +163,95 @@ are installed.
 
 ---
 
+## Library Dependency Checking
+
+```sh
+doas ace -S firefox --libs
+```
+
+The `--libs` flag enables automatic library-level dependency resolution. It:
+
+1. **Builds a provides index**: Scans all sync database packages' `%PROVIDES%`
+   metadata for shared library entries (e.g., `libc.so=6-64`, `libssl.so=3`).
+2. **Resolves co-providers**: For each target package's dependency chain,
+   discovers other packages that provide the same libraries — these may be
+   implicit dependencies not captured by explicit `depends` declarations.
+3. **Adds missing providers**: Any library-providing package not already in the
+   install set is added automatically.
+
+### Caching
+
+`--libs` prioritises **speed** over exhaustive accuracy. Results are cached at
+`{dbpath}/cache/libcheck_cache` so subsequent runs can skip expensive
+resolution for already-analysed packages. The cache is automatically
+invalidated when sync databases are refreshed (`-Sy`), ensuring stale
+entries are never used.
+
+**Cache file format** (text, one entry per line):
+```
+# ace libcheck cache v1 — auto-generated
+firefox=ffmpeg,libvpx,libwebp
+zsh=
+```
+
+When combined with `--all-optional`, both optional deps AND library providers are
+resolved.
+
+**Example**: Installing `firefox` with `--libs` may discover that `libffi`
+provides a library Firefox links against. On the first run, the full metadata
+scan resolves all providers. On subsequent runs, cached results are used
+instantly.
+
+---
+
+## Extreme Library Checking
+
+```sh
+doas ace -S firefox --extreme-libs
+```
+
+The `--extreme-libs` flag prioritises **accuracy** over speed. It always runs
+fresh — bypassing the `--libs` cache entirely:
+
+1. **Runs `ldconfig -p`**: Queries the system's dynamic linker cache for all
+   installed shared libraries (~4000 entries on a typical Arch system).
+2. **Cross-references with sync DBs**: Matches each system library soname against
+   the sync database provides index.
+3. **Discovers missing providers**: If a target package's dependency chain
+   requires a library that exists on the system but whose provider package
+   isn't in the install set, that provider is added.
+
+Unlike `--libs`, `--extreme-libs` **never uses cached results** — every
+invocation spawns a fresh `ldconfig -p` subprocess and performs a full
+cross-reference against the sync database provides index. This guarantees
+the most accurate picture of the current system state.
+
+**Speed vs accuracy trade-off**:
+
+| Flag | Strategy | Speed | Accuracy | Cached? |
+|---|---|---|---|---|
+| `--libs` | Reverse-index + reverse-depends | Fast | Good | Yes — `{dbpath}/cache/libcheck_cache` |
+| `--extreme-libs` | `ldconfig -p` + full cross-reference | Slow (~1-5s) | Best | No — always fresh |
+
+**Caveats**:
+- Reflects only the *current* system state — not suitable for chroot or
+  `--root` operations on different systems.
+- Requires `ldconfig` (part of `glibc`, always available on Arch).
+- Uses a 30-second timeout on `ldconfig` to guard against stuck NFS mounts.
+
+`--libs` and `--extreme-libs` can be used together for maximum coverage:
+`doas ace -Syu --libs --extreme-libs`. The `--libs` resolution runs first
+(cached), then `--extreme-libs` supplements with fresh ldconfig results.
+
+---
+
 ## Post-Transaction Hooks
 
-Ace runs ALPM-compatible post-transaction hooks after every install (`-S`, `-U`)
-and remove (`-R`) operation. Hooks handle system integration tasks like
-initramfs regeneration, font cache updates, and service restarts.
+Ace runs ALPM-compatible hooks at multiple phases: pre-transaction (before any
+packages are installed), per-package post-install (after each individual package
+extraction), and post-transaction (after all packages in the transaction).
+Hooks handle system integration tasks like initramfs regeneration, font cache
+updates, and service restarts.
 
 ### Hook File Format
 
@@ -267,13 +354,17 @@ During package extraction, ace shows a real-time progress bar:
 
 ## Colour Theme
 
-Ace uses a **deep crimson** colour scheme (ANSI 256-color `#d70000` / 160):
+Ace uses a **deep crimson** colour scheme (ANSI 256-color `#d70000` / 160)
+with complementary accents:
 
 | Element | Colour | Code |
 |---|---|---|
 | Section headings (`:: Installing`) | Bold crimson | `\033[1m\033[38;5;160m` |
 | Package names | Bold crimson | `\033[1m\033[38;5;160m` |
+| New packages | Light pink | `\033[38;5;211m` |
+| Installed/up-to-date | Dark green | `\033[38;5;28m` |
 | Version strings | Crimson | `\033[38;5;160m` |
+| Progress/download | Orange | `\033[38;5;208m` |
 | Errors | Bold bright red | `\033[1m\033[38;5;196m` |
 | Warnings | Bold yellow | `\033[1m\033[38;5;220m` |
 | Success markers | Green | `\033[38;5;76m` |
@@ -358,6 +449,64 @@ ace -S --print neovim
 
 # Download only, don't install
 ace -Sw firefox
+```
+
+`--print` mode automatically skips database lock acquisition and confirmation
+prompts, matching pacman's behavior.  It also implicitly sets `--noconfirm` and
+skips conflict resolution for speed.
+
+---
+
+## Pacman Compatibility Notes
+
+Ace aims for full pacman compatibility.  Key behavioural notes:
+
+### Double-Flag Semantics
+
+| Flag | Effect |
+|---|---|
+| `-Rs` | Remove with unneeded dependencies (RECURSE) |
+| `-Rss` | Remove with ALL dependencies including explicitly installed (RECURSEALL) |
+| `-Rd` | Skip dependency version checks (NODEPVERSION) |
+| `-Rdd` | Skip ALL dependency checks (NODEPS) |
+| `-Su` / `--sysupgrade` | Upgrade all packages |
+| `-Suu` / `--sysupgrade --sysupgrade` | Upgrade allowing downgrades |
+
+### `--dbonly` Implications
+
+When `--dbonly` is used (both `-R` and `-S`), ace automatically enables
+`--noscriptlet` — install scripts and hooks are not executed.  This matches
+pacman's behaviour where `--dbonly` implies `NOSCRIPTLET | NOHOOKS`.
+
+### HoldPkg Enforcement
+
+Packages listed in the `HoldPkg` configuration option cannot be removed.
+Attempting to remove a held package produces an error.  This protects
+critical system packages (e.g., `pacman`, `glibc`, `systemd`) from
+accidental removal.
+
+### Separated CLI Overrides
+
+Config-only options now have CLI overrides with proper priority (CLI >
+config > defaults):
+
+| Config Option | CLI Flag |
+|---|---|
+| `Color` | `--color <auto\|never\|always>` |
+| `NoProgressBar` | `--noprogressbar` |
+| `IgnoreGroup` | `--ignoregroup <group>` |
+| `DisableDownloadTimeout` | `--disable-download-timeout` |
+| `DisableSandbox` | `--disable-sandbox` |
+
+### Stdin Target Reading
+
+Ace supports reading package targets from stdin using the `-` token:
+```sh
+# Install all packages listed in a file
+cat pkglist.txt | ace -S -
+
+# Pipe from pacman
+pacman -Qq | ace -S -
 ```
 
 ---

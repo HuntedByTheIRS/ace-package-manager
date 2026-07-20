@@ -63,6 +63,15 @@ doas ./ace --pacman -R fish
 | `--keyring-init` | Initialize a fresh GPG keyring |
 | `--keyring-populate <name>` | Import keys from a keyring package |
 | `--all-optional` | Install all optional dependencies alongside the target |
+| `--libs` | Check library-level deps with caching for speed |
+| `--extreme-libs` | Cross-reference with ldconfig, always fresh for accuracy |
+| `--sysupgrade` | Long form of `-Su` — upgrade all packages |
+| `--search` | Long form of `-Ss` — search sync databases |
+| `--ignoregroup <group>` | Ignore a package group during upgrades |
+| `--color <when>` | Control colored output: auto, never, always |
+| `--noprogressbar` | Suppress progress bars |
+| `--disable-download-timeout` | Disable download timeouts |
+| `--disable-sandbox` | Disable download sandboxing |
 | `--deptree <pkg>` | Show recursive dependency tree with version constraints |
 | `--history` | Show human-readable transaction history |
 | `--noconfirm` | Skip confirmation prompts |
@@ -105,12 +114,24 @@ ace -T glibc "python>=3.10"      # check if deps are satisfied
 
 # System maintenance
 doas ace -Syu                     # full upgrade
+doas ace --sysupgrade             # same as -Su
 doas ace -Sc                      # clean package cache
 ace -Dk                           # check DB consistency
 ace --history                     # view transaction log
 
+# Remove with dependency handling
+doas ace -Rs neovim               # remove with unneeded deps
+doas ace -Rss firefox             # remove with ALL deps (incl. explicit)
+ace -R --print firefox            # dry-run (skips lock+confirm)
+
 # Install with optional deps
 doas ace -S fish --all-optional   # installs fish + python, pkgfile, groff, etc.
+
+# Check library-level dependencies during install (cached for speed)
+doas ace -S firefox --libs        # fast — uses cache, resolves only new packages
+
+# Cross-reference with system libraries (always fresh)
+doas ace -S firefox --extreme-libs  # accurate — always runs ldconfig fresh
 
 # Dry-run removal
 ace -R --print firefox            # see what would be removed

@@ -131,7 +131,10 @@ pub fn init_from_args(mut args CliArgs) !InitResult {
 		siglevel:           int(cfg.siglevel)
 		parallel_downloads: cfg.parallel_downloads
 		no_confirm:         noconfirm_val
-		noprogressbar:      cfg.noprogressbar || args.debug > 0
+		noprogressbar:      args.noprogressbar || cfg.noprogressbar || args.debug > 0
+		color:              if args.color != '' { args.color } else { cfg.color.str() }
+		disable_dl_timeout: args.disable_dl_timeout || cfg.disabledl_timeout
+		disable_sandbox:    args.disable_sandbox || cfg.disablesandbox
 		debug_level:        args.debug
 		checkspace:         cfg.checkspace
 		noextract:          cfg.noextract.clone()

@@ -27,7 +27,7 @@ bin/
 modules/
 .omo/
 .opencode/
-.log/
+.logs/
 
 # Test artifacts
 tests/fixtures/output/

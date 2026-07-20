@@ -215,6 +215,8 @@ pub mut:
 	lockfile_path      string   // resolved lock file path
 	no_confirm         bool     // --noconfirm / --confirm
 	noprogressbar      bool     // --noprogressbar — suppress progress bars
+	color              string   // --color — auto, never, always
+	disable_dl_timeout bool     // --disable-download-timeout
 	debug_level        int      // --debug level (0=none, 1=basic, 2=verbose)
 	checkspace         bool     // CheckSpace — enable disk space checking
 	overwrite_files    []string // glob patterns for files that may be overwritten (--overwrite)

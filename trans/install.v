@@ -12,7 +12,7 @@ pub enum InstallFlags {
 	asdeps
 	asexplicit
 	needed
-	noscriplet
+	noscriptlet
 	dbonly
 	downloadonly
 	force
