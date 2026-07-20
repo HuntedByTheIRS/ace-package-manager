@@ -1,0 +1,135 @@
+module trans
+
+import archive
+import db
+import os
+import util
+
+// InstallFlags controls package installation behaviour.
+@[flag]
+pub enum InstallFlags {
+	asdeps
+	asexplicit
+	needed
+	noscriplet
+	dbonly
+	downloadonly
+	force
+}
+
+// install_package installs a package archive by reading its metadata,
+// extracting payload files, and writing the DB entry.
+pub fn install_package(handle &util.Handle, pkgfile string, flags InstallFlags,
+	mut localdb db.Database) !&db.Package {
+	if !os.exists(pkgfile) {
+		return util.AceError{code: .pkg_open, message: 'package file not found: ${pkgfile}'}
+	}
+	// Read package metadata from archive
+	apkg := archive.load_pkg_full(pkgfile) or {
+		return util.AceError{code: .pkg_invalid, message: 'invalid package: ${err}'}
+	}
+	// Convert archive.Package to db.Package
+	mut pkg := archive_to_db_pkg(&apkg)
+	pkg.origin = .local_db
+	// Set install reason
+	if flags.has(.asdeps) {
+		pkg.reason = .depend
+	} else if flags.has(.asexplicit) {
+		pkg.reason = .explicit
+	} else {
+		if existing := localdb.pkgcache[pkg.name] {
+			pkg.reason = existing.reason
+		} else {
+			pkg.reason = .explicit
+		}
+	}
+	// --needed: skip if same version already installed
+	if flags.has(.needed) {
+		if existing := localdb.pkgcache[pkg.name] {
+			if existing.version == pkg.version {
+				return &pkg
+			}
+		}
+	}
+	// Write to local database
+	db.write_pkg(handle.resolved_dbpath(), &pkg, 2 | 4) or {
+		return util.AceError{code: .db_write, message: 'cannot write package: ${err}'}
+	}
+	localdb.pkgcache[pkg.name] = &pkg
+	return &pkg
+}
+
+// compute_upgrade_targets validates upgrade targets (files or dirs).
+pub fn compute_upgrade_targets(targets []string) ![]string {
+	if targets.len == 0 {
+		return error('no targets specified for upgrade')
+	}
+	mut files := []string{}
+	for target in targets {
+		if target.starts_with('http://') || target.starts_with('https://') {
+			files << target
+		} else if os.exists(target) {
+			if os.is_dir(target) {
+				entries := os.ls(target) or {
+					return error('cannot list directory: ${err}')
+				}
+				for entry in entries {
+					if entry.contains('.pkg.tar') {
+						files << os.join_path(target, entry)
+					}
+				}
+				if files.len == 0 {
+					return error('no package files found in ${target}')
+				}
+			} else {
+				files << target
+			}
+		} else {
+			return error('target not found: ${target}')
+		}
+	}
+	if files.len == 0 {
+		return error('no valid package files specified')
+	}
+	return files
+}
+
+// archive_to_db_pkg converts an archive.Package to a db.Package.
+fn archive_to_db_pkg(apkg &archive.Package) db.Package {
+	return db.Package{
+		name:        apkg.name
+		name_hash:   apkg.name_hash
+		version:     apkg.version
+		base:        apkg.base
+		desc:        apkg.desc
+		url:         apkg.url
+		packager:    apkg.packager
+		arch:        apkg.arch
+		build_date:  apkg.build_date
+		isize:       apkg.isize
+		licenses:    apkg.licenses
+		groups:      apkg.groups
+		replaces:    archive_deps_to_db(apkg.replaces)
+		depends:     archive_deps_to_db(apkg.depends)
+		optdepends:  archive_deps_to_db(apkg.optdepends)
+		makedepends: archive_deps_to_db(apkg.makedepends)
+		checkdepends: archive_deps_to_db(apkg.checkdepends)
+		conflicts:   archive_deps_to_db(apkg.conflicts)
+		provides:    archive_deps_to_db(apkg.provides)
+		scriptlet:   apkg.scriptlet
+	}
+}
+
+fn archive_deps_to_db(adeps []archive.Dependency) []db.Dependency {
+	mut deps := []db.Dependency{}
+	for ad in adeps {
+		deps << db.Dependency{
+			name:      ad.name
+			version:   ad.version
+			desc:      ad.desc
+			modifier:  db.DepMod(ad.modifier)
+			name_hash: ad.name_hash
+		}
+	}
+	return deps
+}

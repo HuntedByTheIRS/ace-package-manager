@@ -1,0 +1,186 @@
+.TH ACE.CONF 5 "2026-07-19" "Ace 0.1.0" "Arcturus Linux"
+.SH NAME
+ace.conf \- Ace package manager configuration
+.SH DESCRIPTION
+Ace reads
+.B /etc/ace.conf
+by default. Use
+.B \-\-pacman
+to read
+.B /etc/pacman.conf
+and use pacman-compatible paths instead. The format is identical to
+.BR pacman.conf (5).
+
+.SH FILE FORMAT
+The configuration file is an INI-style file with sections denoted by
+[brackets]. Lines beginning with # are comments. Keys and values are
+separated by =.
+
+.PP
+Two section types exist:
+.B [options]
+for global settings and
+.B [repo-name]
+for repository definitions.
+
+.SH OPTIONS SECTION
+.TP
+\fBRootDir\fR = \fI/path\fR
+Installation root directory. All operations are relative to this path.
+Default: /
+.TP
+\fBDBPath\fR = \fI/path\fR
+Path to the package database. In native mode this is /var/lib/ace/.
+In \-\-pacman mode this is /var/lib/pacman/. Default: /var/lib/ace/
+.TP
+\fBCacheDir\fR = \fI/path\fR
+Directory for cached package files. Default: /var/cache/ace/pkg/
+.TP
+\fBLogFile\fR = \fI/path\fR
+Transaction log file path. Default: /var/log/ace.log
+.TP
+\fBGPGDir\fR = \fI/path\fR
+GPG home directory for signature verification and keyring storage.
+Default: /etc/ace/gnupg/
+.TP
+\fBHookDir\fR = \fI/path\fR
+Directory containing ALPM .hook files. May be specified multiple
+times to include hooks from multiple directories (e.g. system hooks
+and user hooks). Default: /etc/ace/hooks/
+.TP
+\fBHoldPkg\fR = \fIpkg1 pkg2 ...\fR
+Space-separated list of packages that will never be removed. These
+packages are skipped during -R unless explicitly forced.
+.TP
+\fBArchitecture\fR = \fIauto\fR|\fIarch\fR
+Target architecture for package selection. Use \fIauto\fR to detect.
+Default: auto
+.TP
+\fBSigLevel\fR = \fIlevel\fR ...
+Signature verification level. See \fBSIGNATURE LEVELS\fR below.
+.TP
+\fBParallelDownloads\fR = \fIN\fR
+Number of concurrent download streams. Default: 1
+.TP
+\fBDownloadUser\fR = \fIusername\fR
+Drop privileges to this user for network downloads. Requires root.
+.TP
+\fBCheckSpace\fR
+Enable disk space checking before transactions. Disabled by default.
+.TP
+\fBVerbosePkgLists\fR
+Show package sizes and descriptions in package lists.
+.TP
+\fBColor\fR
+Enable coloured output (always enabled in ace).
+.TP
+\fBIgnorePkg\fR = \fIpkg1 pkg2 ...\fR
+Packages to ignore during upgrades.
+.TP
+\fBIgnoreGroup\fR = \fIgroup1 group2 ...\fR
+Groups to ignore during upgrades.
+.TP
+\fBNoExtract\fR = \fIglob1 glob2 ...\fR
+File globs that will never be extracted from packages.
+.TP
+\fBNoUpgrade\fR = \fIglob1 glob2 ...\fR
+File globs that will be saved as .pacnew instead of overwritten.
+.TP
+\fBCleanMethod\fR = \fIKeepInstalled\fR|\fIKeepCurrent\fR
+Determines which packages are kept during -Sc. \fIKeepInstalled\fR retains
+only installed versions. \fIKeepCurrent\fR retains the current version from
+the sync database. Default: KeepInstalled
+.TP
+\fBDisableSandbox\fR
+Disable all sandboxing for downloads.
+.TP
+\fBI LoveCandy\fR
+Accepted for compatibility; enables the candy-style progress bar.
+
+.SH REPOSITORY SECTIONS
+Each repository section may contain:
+.TP
+\fBServer\fR = \fIurl\fR
+A full URL to the repository. Variables \fB$repo\fR and \fB$arch\fR
+are substituted. May be specified multiple times for mirror failover.
+.TP
+\fBInclude\fR = \fI/path\fR
+Include another file (typically a mirrorlist). The file is parsed
+recursively; Server lines found within populate the repository.
+.TP
+\fBSigLevel\fR = \fIlevel\fR ...
+Per-repository signature verification level override.
+.TP
+\fBUsage\fR = \fISync\fR|\fIAll\fR
+Repository usage scope. \fISync\fR for sync operations only.
+\fIAll\fR for both sync and file search.
+
+.SH SIGNATURE LEVELS
+The SigLevel directive accepts one or more of:
+.TP
+\fBNever\fR
+No signature checking.
+.TP
+\fBOptional\fR
+Signatures are checked if present; missing signatures are not an error.
+.TP
+\fBRequired\fR
+Signatures are mandatory; missing or invalid signatures cause failure.
+.TP
+\fBTrustedOnly\fR
+Only keys in the keyring are trusted.
+.TP
+\fBTrustAll\fR
+All keys are trusted (not recommended).
+.TP
+\fBDatabaseOptional\fR, \fBDatabaseRequired\fR
+Modifiers that apply the specified level to repository databases.
+.TP
+\fBPackageOptional\fR, \fBPackageRequired\fR
+Modifiers that apply the specified level to individual packages.
+.TP
+\fBLocalFileSigLevel\fR
+Signature level for local package files (-U operations).
+
+.SH EXAMPLE
+.nf
+[options]
+DBPath      = /var/lib/ace/
+CacheDir    = /var/cache/ace/pkg/
+LogFile     = /var/log/ace.log
+GPGDir      = /etc/ace/gnupg/
+Architecture = auto
+SigLevel    = Required DatabaseOptional
+ParallelDownloads = 5
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+
+[multilib]
+Include = /etc/pacman.d/mirrorlist
+.fi
+
+.SH FILES
+.TP
+.I /etc/ace.conf
+Default ace configuration file (native mode).
+.TP
+.I /etc/pacman.conf
+Pacman configuration (used when --pacman is active).
+.TP
+.I /etc/pacman.d/mirrorlist
+Repository mirror list, included by configuration.
+.TP
+.I /etc/ace/hooks/
+Default hook directory.
+.TP
+.I /etc/ace/gnupg/
+Default GPG keyring directory.
+
+.SH SEE ALSO
+.BR ace (1),
+.BR pacman.conf (5),
+.BR pacman (8)

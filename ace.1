@@ -1,0 +1,399 @@
+.TH ACE 1 "2026-07-19" "Ace 0.1.0" "Arcturus Linux"
+.SH NAME
+ace \- Arch Linux Compatible Package Manager
+.SH SYNOPSIS
+.B ace
+[\fIoptions\fR] \fIoperation\fR [\fItargets\fR]
+.br
+.B ace
+{\fB\-\-deptree\fR|\fB\-\-history\fR|\fB\-\-transfer\fR|\fB\-\-keyring\-init\fR} ...
+.SH DESCRIPTION
+Ace is a drop-in replacement for
+.BR pacman (8)
+written in V. It supports all standard pacman subcommands with matching
+flags and behaviour, plus additional features: dependency tree, transaction
+history, one-shot pacman migration, coloured crimson UI, and a native
+keyring manager.
+.PP
+Ace can operate in two modes: native (using
+.IR /var/lib/ace/ )
+or pacman-compatible (using
+.B \-\-pacman
+to share
+.IR /var/lib/pacman/ ).
+
+.SH OPERATIONS
+.TP
+\fB\-Q\fR, \fB\-\-query\fR
+Query the local package database.
+.RS
+.TP
+\fB\-Qi\fR \fIpkg\fR
+Show detailed package information.
+.TP
+\fB\-Ql\fR \fIpkg\fR
+List files owned by a package.
+.TP
+\fB\-Qs\fR \fIregex\fR
+Search installed packages by name or description.
+.TP
+\fB\-Qo\fR \fIfile\fR
+Find which package owns a file.
+.TP
+\fB\-Qk\fR \fIpkg\fR
+Check that all files in a package exist on disk.
+.TP
+\fB\-Qkk\fR \fIpkg\fR
+Verbose file check.
+.TP
+\fB\-Qe\fR
+List explicitly installed packages.
+.TP
+\fB\-Qd\fR
+List packages installed as dependencies.
+.TP
+\fB\-Qt\fR
+List unrequired packages (not depended on by others).
+.RE
+
+.TP
+\fB\-S\fR, \fB\-\-sync\fR
+Synchronize package databases and install packages.
+.RS
+.TP
+\fB\-Sy\fR
+Refresh package databases.
+.TP
+\fB\-Syy\fR
+Force refresh (even if up to date).
+.TP
+\fB\-Ss\fR \fIregex\fR
+Search sync databases.
+.TP
+\fB\-Si\fR \fIpkg\fR
+Show remote package information.
+.TP
+\fB\-Sl\fR [\fIrepo\fR]
+List packages in sync databases.
+.TP
+\fB\-Su\fR
+Upgrade all installed packages.
+.TP
+\fB\-Suu\fR
+Upgrade allowing downgrades.
+.TP
+\fB\-Sc\fR
+Clean package cache (keep installed versions).
+.TP
+\fB\-Scc\fR
+Clean all cached packages.
+.TP
+\fB\-\-needed\fR
+Skip reinstalling up-to-date packages.
+.TP
+\fB\-\-asdeps\fR
+Install as dependency.
+.TP
+\fB\-\-asexplicit\fR
+Install as explicitly requested.
+.RE
+
+.TP
+\fB\-R\fR, \fB\-\-remove\fR
+Remove packages.
+.RS
+.TP
+\fB\-Rs\fR
+Remove with unneeded dependencies.
+.TP
+\fB\-Rc\fR
+Cascade: remove packages depending on targets.
+.TP
+\fB\-Rn\fR
+No .pacsave backups for modified config files.
+.TP
+\fB\-Ru\fR
+Remove unneeded orphans.
+.TP
+\fB\-\-print\fR
+Dry-run: show what would be removed.
+.TP
+\fB\-\-dbonly\fR
+Only remove database entry, keep files on disk.
+.RE
+
+.TP
+\fB\-U\fR, \fB\-\-upgrade\fR
+Install or upgrade from a local package file.
+.RS
+.TP
+\fB\-\-asdeps\fR
+Install as a dependency.
+.TP
+\fB\-\-asexplicit\fR
+Install as explicitly requested.
+.TP
+\fB\-w\fR
+Download only, do not install.
+.TP
+\fB\-\-overwrite\fR \fIglob\fR
+Allow overwriting files matching the glob pattern.
+.RE
+
+.TP
+\fB\-D\fR, \fB\-\-database\fR
+Modify the local package database.
+.RS
+.TP
+\fB\-Dk\fR
+Check database consistency (missing deps, file conflicts).
+.TP
+\fB\-Dkk\fR
+Verbose database check.
+.TP
+\fB\-\-asdeps\fR \fIpkg\fR
+Mark package as installed as a dependency.
+.TP
+\fB\-\-asexplicit\fR \fIpkg\fR
+Mark package as explicitly installed.
+.RE
+
+.TP
+\fB\-T\fR, \fB\-\-deptest\fR
+Check dependency satisfiability.
+.RS
+.TP
+\fB\-T\fR \fIdep1\fR [\fIdep2\fR ...]
+Print any unsatisfied dependencies, exit 127 if any.
+.RE
+
+.TP
+\fB\-F\fR, \fB\-\-files\fR
+Query the files database.
+.RS
+.TP
+\fB\-Fl\fR \fIpkg\fR
+List files owned by remote packages.
+.TP
+\fB\-Fy\fR
+Refresh files databases (downloads .files DBs).
+.TP
+\fB\-Fx\fR \fIregex\fR
+Search using extended regex.
+.TP
+\fB\-\-machinereadable\fR
+Null-delimited output for scripting.
+.RE
+
+.SH ACE-SPECIFIC OPTIONS
+.TP
+\fB\-\-pacman\fR
+Use pacman-compatible paths (/etc/pacman.conf, /var/lib/pacman/, etc).
+This allows ace and pacman to share the same installed-package database.
+.TP
+\fB\-\-transfer\fR
+One-shot migration: copy all pacman data (local DB, sync DBs, config,
+cache, hooks, GPG keyring, log) into ace's native directories under
+/var/lib/ace/. Idempotent and non-destructive.
+.TP
+\fB\-\-deptree\fR \fIpkg\fR
+Display a recursive dependency tree with version constraints and
+circular dependency detection. Similar to pactree(1).
+.TP
+\fB\-\-history\fR
+Display human-readable transaction history from the log file.
+Colour-coded markers: green [INSTALL], yellow [REMOVE], crimson [UPGRADE].
+.TP
+\fB\-\-all\-optional\fR
+When installing, also install all optional dependencies alongside
+the target package.
+.TP
+\fB\-\-keyring\-init\fR
+Initialize a fresh GPG keyring at the configured GPGDir. Creates the
+directory, trust database, and an ACE master signing key.
+.TP
+\fB\-\-keyring\-populate\fR \fIname\fR
+Import trusted keys from a keyring package into the configured GPG
+directory. Equivalent to \fBpacman-key \-\-populate\fR.
+.TP
+\fB\-\-keyring\-init\fR
+Initialize a fresh GPG keyring at the configured GPGDir. Creates the
+directory, trust database, and an ACE master signing key.
+.TP
+\fB\-\-keyring\-populate\fR \fIname\fR
+Import trusted keys from a keyring package into the configured GPG
+directory. Equivalent to \fBpacman-key \-\-populate\fR.
+.TP
+\fB\-\-debug\fR[\fB=\fIN\fR]
+Enable debug output. Level 1 shows DB loading, resolution, and install
+summary. Level 2 adds per-file extraction logging.
+.TP
+\fB\-\-config\fR \fIpath\fR
+Use an alternate configuration file (default: /etc/ace.conf).
+.TP
+\fB\-\-root\fR \fIpath\fR
+Set an alternate installation root.
+.TP
+\fB\-\-dbpath\fR \fIpath\fR
+Set an alternate database path.
+.TP
+\fB\-\-noconfirm\fR
+Skip all confirmation prompts.
+.TP
+\fB\-\-cachedir\fR \fIdir\fR
+Set an alternate package cache directory (may be repeated).
+.TP
+\fB\-\-logfile\fR \fIpath\fR
+Set an alternate log file path.
+
+.SH EXAMPLES
+.TP
+Install a package from repositories:
+.RS
+# ace -S neovim
+.RE
+.TP
+Full system upgrade:
+.RS
+# ace -Syu
+.RE
+.TP
+Search for a package:
+.RS
+ace -Ss "terminal emulator"
+.RE
+.TP
+Show package information:
+.RS
+ace -Qi glibc
+.RE
+.TP
+List files owned by a package:
+.RS
+ace -Ql firefox
+.RE
+.TP
+Remove a package and its unneeded dependencies:
+.RS
+# ace -Rsn firefox
+.RE
+.TP
+Install from a local package file:
+.RS
+# ace -U /path/to/pkg.pkg.tar.zst
+.RE
+.TP
+Check database consistency:
+.RS
+ace -Dk
+.RE
+.TP
+Dependency tree:
+.RS
+ace --deptree zsh
+.RE
+.TP
+Transaction history:
+.RS
+ace --history
+.RE
+.TP
+Migrate from pacman:
+.RS
+# ace --transfer
+ace -Syu
+.RE
+.TP
+Initialize keyring:
+.RS
+# ace --keyring-init
+# ace --keyring-populate archlinux
+.RE
+.TP
+Create a chroot:
+.RS
+mkdir -p /mnt/arch/var/lib/ace/local
+echo 9 > /mnt/arch/var/lib/ace/local/ALPM_DB_VERSION
+cp /var/lib/ace/sync/*.db /mnt/arch/var/lib/ace/sync/
+# ace --config /etc/ace.conf --root /mnt/arch -S base linux vim
+.RE
+
+.SH HOOKS
+Ace runs post-transaction hooks after every install (\fB\-S\fR, \fB\-U\fR) and
+remove (\fB\-R\fR) operation. Hooks are defined as
+.B .hook
+files in the configured
+.B HookDir
+(default:
+.IR /etc/ace/hooks/ ).
+.PP
+Hook files use the standard ALPM format:
+.PP
+.nf
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = linux
+
+[Action]
+When = PostTransaction
+Exec = /usr/bin/mkinitcpio -P
+.fi
+.PP
+Both
+.B PreTransaction
+and
+.B PostTransaction
+hooks are supported. Hooks with
+.B AbortOnFail
+set to true will cancel the transaction if they fail during PreTransaction.
+PostTransaction failures are non-fatal.
+
+.SH KEYRING
+Ace manages its own GPG keyring for package signature verification.
+.PP
+Initialize a fresh keyring:
+.RS
+# ace --keyring-init
+.RE
+.PP
+Import trusted keys from a keyring package:
+.RS
+# ace --keyring-populate archlinux
+# ace --keyring-populate arcturus
+.RE
+.PP
+The keyring is stored at the configured
+.B GPGDir
+(default:
+.IR /etc/ace/gnupg/ ).
+
+.SH FILES
+.TP
+.I /etc/ace.conf
+Default configuration file.
+.TP
+.I /var/lib/ace/local/
+Local package database (native mode).
+.TP
+.I /var/lib/ace/sync/
+Synchronized repository databases (native mode).
+.TP
+.I /var/lib/pacman/local/
+Local package database (--pacman mode).
+.TP
+.I /var/log/ace.log
+Transaction log.
+
+.SH SEE ALSO
+.BR ace.conf (5),
+.BR pacman (8),
+.BR pactree (1),
+.BR pacman-key (8),
+.BR gpg (1)
+
+.SH BUGS
+Report issues at the project repository. Known limitations: CachyOS
+repositories lack %DEPENDS% metadata in sync databases; use official
+Arch repositories for complete dependency resolution.
