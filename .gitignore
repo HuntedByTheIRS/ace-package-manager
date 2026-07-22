@@ -24,7 +24,6 @@ bin/
 *.js
 
 # Ignore installed modules through `v install --local`:
-modules/
 .omo/
 .opencode/
 .logs/
