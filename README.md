@@ -173,4 +173,10 @@ make clean      # remove binary
 
 ## License
 
-MIT
+Ace Public License — a custom copyleft license. See [LICENSE](LICENSE) for the
+full terms.
+
+- Ace may be used for any purpose, including proprietary commercial use.
+- Ace — whether unmodified or modified — may not be sold.
+- Modified versions that are distributed or advertised must be open source
+  under the same license, with corresponding source code publicly available.

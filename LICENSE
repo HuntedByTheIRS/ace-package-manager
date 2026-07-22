@@ -1,0 +1,153 @@
+ACE PUBLIC LICENSE
+Version 1.0, July 2026
+
+Copyright (c) 2026 The Ace Contributors
+
+This license governs the use, modification, and distribution of the
+Licensed Work (as defined below).  It is designed to ensure that every
+version of the Licensed Work — whether original or modified — remains
+free and open for all who use it.
+
+Every licensee is addressed as "you".
+
+
+TERMS AND CONDITIONS
+
+0.  Definitions.
+
+    "Licensed Work" means the original Ace package manager source code
+    and accompanying binaries, documentation, and configuration files,
+    as published by the copyright holder.
+
+    "Modified Work" means any work that reproduces, is derived from,
+    or is based upon the Licensed Work (or any modification thereof),
+    including without limitation any adaptation, translation, or
+    compilation that contains the Licensed Work or a portion thereof.
+    A work that is merely aggregated with the Licensed Work on a
+    storage or distribution medium is not a Modified Work.
+
+    "Convey" means any act by which you make, or cause to be made,
+    the Licensed Work or a Modified Work available to any other
+    person or entity, whether by distribution, publication, upload,
+    transmission, network access, remote invocation, or any other
+    means of transfer, whether for consideration or free of charge.
+
+    "Corresponding Source" means the complete source code of the
+    Modified Work, including all scripts, interface-definition files,
+    build instructions, and configuration files used to compile and
+    install the modifications.  It includes any associated source
+    code for libraries whose function is directly related to the
+    operation of the Modified Work, but does not include system
+    libraries or general-purpose tools ordinarily provided with a
+    compiler or operating system.
+
+1.  Grant of License.
+
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of the Licensed Work, to use, reproduce, modify,
+    prepare Modified Works, and Convey the Licensed Work and any
+    Modified Works, subject to the following conditions.
+
+    The Licensed Work may be used for any purpose, including
+    proprietary commercial use.  No restriction is placed on the
+    operation, integration, or internal use of the Licensed Work
+    in any environment, whether commercial or otherwise.
+
+    However, the Licensed Work — whether unmodified or modified —
+    may not be sold.  "Sold" means exchanging the Licensed Work
+    for money or other consideration, including as a standalone
+    product, as part of a bundle or subscription, or through any
+    other commercial transaction in which the Licensed Work is
+    the primary subject of the exchange.  This does not prohibit
+    charging a reasonable fee for physical distribution media,
+    providing the Licensed Work as part of a value-added service
+    (such as hosting, support, or consulting), or receiving
+    voluntary donations.
+
+2.  Copyleft Condition.
+
+    If you Convey or advertise a Modified Work, you must:
+
+        a) License the entire Modified Work — as a whole — under
+           this Ace Public License, with no additional terms or
+           restrictions.  You may not impose any further conditions
+           on the exercise of the rights granted under this License.
+
+        b) Include a copy of this Ace Public License with every
+           copy of the Modified Work that you Convey.
+
+        c) Make the Corresponding Source of the Modified Work
+           publicly available, free of charge and in a commonly
+           used machine-readable format, at no cost to recipients
+           and no later than the time at which you first Convey
+           or advertise the Modified Work.
+
+        d) Retain all copyright, patent, trademark, and attribution
+           notices present in the Licensed Work.  If the Modified
+           Work includes a user interface, it must display the
+           notice "Based on Ace — https://github.com/ace-pm/ace"
+           or a similar attribution determined by the original
+           copyright holder.
+
+    Conveying the Licensed Work in unmodified form carries no
+    obligation to release source code beyond the original distribution,
+    provided you Convey it under the terms of this License.
+
+3.  Non-interference.
+
+    You may not use the Licensed Work in any manner that deliberately
+    circumvents system security protections, facilitates unauthorized
+    access to computer systems, or deploys malware, ransomware, or
+    unauthorized cryptomining software, where "malware" is defined as
+    software designed to damage, disrupt, or gain unauthorized access
+    to a computer system.
+
+4.  Termination.
+
+    Any violation of the conditions of this License automatically
+    terminates your rights under this License.  If you cure the
+    violation within thirty (30) days of becoming aware of it, your
+    rights are reinstated.  If you fail to cure, your rights are
+    permanently revoked.  The copyright holder may also grant a
+    waiver of any condition on a case-by-case basis.
+
+5.  Disclaimer of Warranty.
+
+    THE LICENSED WORK IS SYSTEM-LEVEL SOFTWARE THAT MANAGES OPERATING
+    SYSTEM COMPONENTS, INCLUDING PACKAGE INSTALLATION, REMOVAL, AND
+    UPGRADE THAT MAY AFFECT SYSTEM STABILITY AND SECURITY.
+
+    THE LICENSED WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+    KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+    WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+    TITLE, AND NONINFRINGEMENT.  THE ENTIRE RISK AS TO THE QUALITY
+    AND PERFORMANCE OF THE LICENSED WORK IS WITH YOU.  SHOULD THE
+    LICENSED WORK PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL
+    NECESSARY SERVICING, REPAIR, OR CORRECTION, INCLUDING ANY SYSTEM
+    RESTORATION OR DATA RECOVERY.
+
+6.  Limitation of Liability.
+
+    IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+    FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+    OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+    OR SYSTEM DAMAGE, DATA CORRUPTION, OR SYSTEM INSTABILITY) ARISING
+    IN ANY WAY OUT OF THE USE OF THE LICENSED WORK, WHETHER IN AN
+    ACTION OF CONTRACT, TORT, STRICT LIABILITY, OR OTHERWISE, EVEN IF
+    ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+7.  Acceptance.
+
+    By using, modifying, or Conveying the Licensed Work, you accept
+    and agree to be bound by the terms of this License.  If you do
+    not agree, you may not use, modify, or Convey the Licensed Work.
+
+8.  Governing Law.
+
+    This License shall be governed by the laws of the Republic of
+    Korea, without regard to its conflict-of-law provisions.  The
+    United Nations Convention on Contracts for the International
+    Sale of Goods does not apply.
+
+END OF TERMS AND CONDITIONS
