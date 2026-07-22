@@ -874,17 +874,9 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 				pkg_names_added[sync_pkg.name] = true
 				println('  downgrading ${local_name} (${local_pkg.version} -> ${sync_pkg.version})')
 			} else {
-				// Same version or local is newer — skip unless --needed
-				// permits reinstallation (matching pacman behavior: --needed
-				// skips up-to-date packages, without it they reinstall).
-				if !args.needed {
-					if pkg_names_added[sync_pkg.name] {
-						continue
-					}
-					pkg_targets << sync_pkg
-					pkg_names_added[sync_pkg.name] = true
-					println('  reinstalling ${local_name} (${local_pkg.version})')
-				}
+				// Same version or local is newer — never reinstall during
+				// system upgrade.  --needed controls explicit -S <pkg>
+				// reinstalls, not -Su behavior (matching pacman).
 			}
 
 			// --all-optional: also pull in optional deps for upgraded pkgs.
@@ -1024,21 +1016,20 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 			if pkg_names_added[lib_pkg_name] {
 				continue
 			}
-			// --needed: skip if already installed at same version.
-			if args.needed {
-				if old := localdb.pkgcache[lib_pkg_name] {
-					mut found_ver_match := false
-					for sdb in syncdbs {
-						if p := sdb.pkgcache[lib_pkg_name] {
-							if util.vercmp(p.version, old.version) == 0 {
-								found_ver_match = true
-							}
-							break
+			// Skip if already installed at the same version — library
+			// providers don't need reinstallation when up-to-date.
+			if old := localdb.pkgcache[lib_pkg_name] {
+				mut found_ver_match := false
+				for sdb in syncdbs {
+					if p := sdb.pkgcache[lib_pkg_name] {
+						if util.vercmp(p.version, old.version) == 0 {
+							found_ver_match = true
 						}
+						break
 					}
-					if found_ver_match {
-						continue
-					}
+				}
+				if found_ver_match {
+					continue
 				}
 			}
 			mut found := false
@@ -1077,21 +1068,19 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 			if pkg_names_added[lib_pkg_name] {
 				continue
 			}
-			// --needed: skip if already installed at same version.
-			if args.needed {
-				if old := localdb.pkgcache[lib_pkg_name] {
-					mut found_ver_match := false
-					for sdb in syncdbs {
-						if p := sdb.pkgcache[lib_pkg_name] {
-							if util.vercmp(p.version, old.version) == 0 {
-								found_ver_match = true
-							}
-							break
+			// Skip if already installed at same version.
+			if old := localdb.pkgcache[lib_pkg_name] {
+				mut found_ver_match := false
+				for sdb in syncdbs {
+					if p := sdb.pkgcache[lib_pkg_name] {
+						if util.vercmp(p.version, old.version) == 0 {
+							found_ver_match = true
 						}
+						break
 					}
-					if found_ver_match {
-						continue
-					}
+				}
+				if found_ver_match {
+					continue
 				}
 			}
 			mut found := false
@@ -1578,14 +1567,23 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 				collected++
 				completed++
 				done_map[r.idx] = true
+				// Clear the bar area before printing the result line,
+				// otherwise bars "clone" below the result on redraw.
+				if bar_lines > 0 {
+					print('\033[${bar_lines}A')
+					for _ in 0 .. bar_lines {
+						print('\033[K\n')
+					}
+					print('\033[${bar_lines}A')
+				}
+				bar_lines = 0
 				if !r.ok {
 					failures++
 					print('\r\033[K  ${disp_names[r.idx]} ${warn('FAILED')}\n')
 				} else {
 					print('\r\033[K  ${disp_names[r.idx]} ${ok('done')}\n')
 				}
-				bar_lines = 0 // reset — we printed final results above
-				// Render remaining active bars.
+				// Render remaining active bars below the result.
 				redraw_bars()
 			}
 			p := <-prog_ch {

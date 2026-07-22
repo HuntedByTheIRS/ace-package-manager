@@ -148,7 +148,10 @@ doas ace -S fish --all-optional
 ```
 
 When `--all-optional` is specified, ace resolves and installs **all** optional
-dependencies alongside the target package. For example, `fish`'s optional deps:
+dependencies alongside the target package(s).  Also works during system upgrades
+(`ace -Su --all-optional`) to pull in optional deps for every upgraded package.
+
+For example, `fish`'s optional deps:
 
 | Optional Dep | Purpose |
 |---|---|
@@ -160,6 +163,40 @@ dependencies alongside the target package. For example, `fish`'s optional deps:
 
 Without `--all-optional`, only hard dependencies (`glibc`, `libgcc`, `pcre2`)
 are installed.
+
+---
+
+## Skipping Up-to-Date Packages
+
+```sh
+ace -S zsh --needed
+```
+
+The `--needed` flag skips reinstalling packages that are already installed
+at the same version.  When used with explicit targets (`-S pkg`), ace
+compares the installed version against the sync database and skips the
+package if they match.
+
+System upgrades (`ace -Su`) **always** skip same-version packages regardless
+of `--needed` — matching pacman's behavior.  `--needed` is also respected
+by `--libs` and `--extreme-libs` when adding library provider packages.
+
+---
+
+## Controlling Download Concurrency
+
+```sh
+ace --parallel=5 -Syu
+```
+
+Overrides the `ParallelDownloads` config value (default: 3).  Controls how
+many package files are downloaded simultaneously.  Higher values may improve
+throughput on fast connections but increase server load.
+
+Equivalent config setting in `ace.conf`:
+```ini
+ParallelDownloads = 5
+```
 
 ---
 
@@ -195,7 +232,8 @@ zsh=
 ```
 
 When combined with `--all-optional`, both optional deps AND library providers are
-resolved.
+resolved.  Library providers already installed at the same sync DB version
+are automatically skipped.
 
 **Example**: Installing `firefox` with `--libs` may discover that `libffi`
 provides a library Firefox links against. On the first run, the full metadata
@@ -242,6 +280,7 @@ the most accurate picture of the current system state.
 `--libs` and `--extreme-libs` can be used together for maximum coverage:
 `doas ace -Syu --libs --extreme-libs`. The `--libs` resolution runs first
 (cached), then `--extreme-libs` supplements with fresh ldconfig results.
+Both flags skip library providers already installed at the same version.
 
 ---
 

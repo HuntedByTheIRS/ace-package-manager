@@ -66,6 +66,9 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/$(OUT)
 	rm -rf $(DESTDIR)$(DOCDIR)
 
+release-alone:
+		$(V) main.v $(VFLAGS) -enable-globals -o $(OUT) -prod
+
 release:
 	$(V) main.v $(VFLAGS) -enable-globals -o $(OUT) -prod
 	mkdir -p releases

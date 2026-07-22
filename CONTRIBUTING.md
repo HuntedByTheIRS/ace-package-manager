@@ -166,14 +166,18 @@ ace/
 ### Install / Remove Pipeline (`trans/`)
 The critical path. Handles archive extraction with progress bar, file list
 tracking, backup file management, scriptlets, and DB writes. The `install.v`
-module performs a two-pass extraction: first pass counts entries, second pass
-extracts with a `[####  ] 47%` progress indicator. File permissions and
-symlinks are preserved from archive metadata.
+module performs **single-pass extraction** with streaming writes — file
+chunks are written directly to disk using a reusable 8 KiB buffer, avoiding
+per-file allocations and in-memory buffering of large files. File permissions
+and symlinks are preserved from archive metadata.
 
 ### Sync Database Management (`cli/sync.v`, `db/sync.v`)
-Downloads `.db` files from configured repositories. Note: ace downloads the
-regular `.db` format (not `.files`). File lists are populated during extraction
-from the package archive itself. The sync DB parser handles `desc`, `depends`,
+Downloads `.db` files from configured repositories in parallel (default: 3
+concurrent, configurable via `ParallelDownloads` or `--parallel=N`).
+Previously-downloaded databases are cached locally and skipped on subsequent
+runs unless `-Syy` forces a refresh.  The sync DB parser handles `desc`,
+`depends`, and `files` entries.  Optdepends names are correctly stripped of
+their `: description` suffix so `--all-optional` lookups work.
 and `files` entries in compressed archives.
 
 ### Dependency Resolution (`trans/resolver.v`)

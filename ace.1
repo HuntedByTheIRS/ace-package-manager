@@ -89,9 +89,10 @@ Clean package cache (keep installed versions).
 Clean all cached packages.
 .TP
 \fB\-\-needed\fR
-Skip reinstalling packages already at the same version.  Also respected
-by \fB\-\-libs\fR and \fB\-\-extreme\-libs\fR to skip library providers that
-are already installed at the matching sync database version.
+Skip reinstalling packages already at the same version when using
+\fB\-S\fR with explicit targets.  System upgrades (\fB\-Su\fR) always
+skip same-version packages regardless of this flag (matching pacman).
+Also respected by \fB\-\-libs\fR and \fB\-\-extreme\-libs\fR.
 .TP
 \fB\-\-parallel\fR=\fIN\fR
 Set the number of concurrent download streams.  Overrides the
