@@ -199,6 +199,10 @@ pub:
 	ignorepkgs       []string
 	ignoregroups     []string
 	assume_installed []string
+	// Pre-built index: virtual provider name → packages that provide it
+	// in the local database.  Built once after localdb.populate() to
+	// avoid O(N) linear scans in satisfied_by_localdb.
+	local_provides   map[string][]&db.Package
 }
 
 // resolve_deps resolves all transitive dependencies for the given target
@@ -314,7 +318,7 @@ fn resolve_pkg(
 			continue
 		}
 		// Already satisfied by an installed (local) package.
-		if satisfied_by_localdb(dep, localdb) {
+		if satisfied_by_localdb(dep, localdb, handle.local_provides) {
 			continue
 		}
 		// Assumed installed / virtual package -- no action needed.
@@ -414,16 +418,28 @@ fn satisfied_by_list(dep db.Dependency, resolved []&db.Package) bool {
 }
 
 // satisfied_by_localdb checks whether an installed package in the local
-// database satisfies the given dependency.
-fn satisfied_by_localdb(dep db.Dependency, localdb &db.Database) bool {
+// database satisfies the given dependency.  Uses the pre-built
+// local_provides index for O(1) provider lookup when available;
+// falls back to O(N) linear scan when the index is empty (not populated).
+fn satisfied_by_localdb(dep db.Dependency, localdb &db.Database, local_provides map[string][]&db.Package) bool {
 	if pkg := localdb.pkgcache[dep.name] {
 		return dep_satisfies(pkg, &dep)
 	}
-	// Also check local providers.
+	// Use pre-built index if available (O(1) per lookup).
+	if local_provides.len > 0 {
+		if providers := local_provides[dep.name] {
+			for pkg in providers {
+				if dep_satisfies(pkg, &dep) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	// Fallback: linear scan of all installed packages (O(N)).
 	for _, pkg in localdb.pkgcache {
 		for prov in pkg.provides {
 			if prov.name_hash == dep.name_hash && prov.name == dep.name {
-				// Check version constraint on the provides entry.
 				if dep_satisfies(pkg, &dep) {
 					return true
 				}

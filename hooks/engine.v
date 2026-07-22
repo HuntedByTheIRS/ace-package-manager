@@ -103,6 +103,11 @@ pub mut:
 	handle      &util.Handle
 	add_pkgs    []&util.Package
 	remove_pkgs []&util.Package
+	// Cached hook definitions — populated on first collect_hooks() call
+	// and reused for all subsequent run_hooks() invocations within the
+	// same transaction.  Avoids re-reading and re-parsing every .hook
+	// file from disk per package.
+	cached_hooks []&Hook
 }
 
 // new_hook_engine creates a HookEngine bound to a util.Handle.
@@ -167,7 +172,15 @@ pub fn (mut e HookEngine) run_post(pkgs []&util.Package) ! {
 //
 // Reference: _alpm_hook_run() (hook.c:528-679)
 pub fn (mut e HookEngine) run_hooks(when HookWhen) ! {
-	all_hooks := e.collect_hooks() or { return }
+	// Parse hooks once per transaction — subsequent calls (e.g.
+	// per-package post-install hooks) reuse the cached result.
+	all_hooks := if e.cached_hooks.len > 0 {
+		e.cached_hooks
+	} else {
+		parsed := e.collect_hooks() or { return }
+		e.cached_hooks = parsed
+		parsed
+	}
 
 	// Sort hooks by filename for deterministic order.
 	// Reference: _alpm_hook_cmp (hook.c:439-451)

@@ -555,11 +555,11 @@ User runs: ace -S fish
    f. Install            → loop: trans.install_package() for each pkg
 5. trans/install.v  install_package()
    a. Clear file list    → pkg.files = FileList{}
-   b. Extract archive    → extract_package_files()
-      - First pass:      count non-metadata entries
-      - Second pass:     extract each file/dir/symlink
-      - Progress bar:    [####  ] 30% per entry
-      - Populate:        pkg.files.files << {name, size, mode}
+    b. Extract archive    → extract_package_files()
+       - Single-pass:     extract each file/dir/symlink in one pass
+       - Streaming:       write file chunks directly to disk
+       - Progress:        file-count indicator (not %)
+       - Populate:        pkg.files.files << {name, size, mode}
    c. Write DB           → db.write_pkg() → {dbpath}/local/fish-4.8.1-1/{desc,files}
 6. Return               → "done"
 ```

@@ -52,17 +52,22 @@ Two database types:
 - **LocalDB** (`/var/lib/pacman/local/`): A directory tree with one
   subdirectory per installed package (`name-version/`), each containing `desc`
   and `files` files in `%KEY%` format. Read via `init()` + `populate()`.
-  Write via `write_pkg()` and `remove_pkg()`.
+  Write via `write_pkg()` (using `strings.Builder` for efficient string
+  construction) and `remove_pkg()`.
 
-- **SyncDB** (compressed `.db` archives): Tarballs fetched from repositories.
-  Parsed via `archive.ArchiveReader`. Each entry in the archive is an
+- **SyncDB** (compressed `.db` archives): Tarballs fetched from repositories
+  in parallel (up to 7 concurrent via semaphore-gated goroutines) and cached
+  locally to avoid re-downloading when up-to-date.  Parsed via
+  `archive.ArchiveReader`. Each entry in the archive is an
   `{name}-{version}/desc` file in `%KEY%` format plus optional `depends` and
-  `files` files.
+  `files` files.  Multiple DBs are parsed in parallel goroutines via
+  `load_sync_dbs()`.
 
 Types (`types.v`) define `Package` (the core data structure carrying all
 metadata), `Dependency` (with parsed version constraints), `FileList`,
 `Group`, and the enums for `DepMod`, `PackageReason`, `PackageOrigin`,
-`PackageValidation`.
+`PackageValidation`.  `build_grpcache()` uses per-package seen-sets for
+O(1) deduplication instead of the old O(n²) linear scan.
 
 ### `cli/` — Subcommands
 
@@ -100,26 +105,30 @@ Key modules within `trans/`:
 
 - **`transaction.v`**: State machine (`trans_init`, `prepare`, `commit`, `release`), flags, hook runner wiring.
 - **`install.v`**: `install_package()` — the core install function. Opens the `.pkg.tar.zst`
-  archive via vibarchive, extracts all files to the filesystem under `handle.root`,
-  populates `pkg.files.files` from archive entries (since sync DBs may lack file
-  lists), preserves permissions and symlinks, and writes metadata to the local DB.
-  Includes a two-pass progress bar showing `[####  ] 47% (158/335)` during extraction.
+  archive via vibarchive and extracts files in a **single pass** (no separate counting
+  pass — saves 2× decompression I/O).  Streams file data directly to disk chunk-by-chunk
+  using a reusable 8 KiB read buffer, avoiding per-file allocations and in-memory
+  buffering of large files.  Preserves permissions and symlinks, populates
+  `pkg.files.files` from archive entries, and writes metadata to the local DB.
 - **`remove.v`**: `remove_package()` — removes files (filelist from local DB, reverse
   iteration, .pacsave backup support, mountpoint guarding), runs scriptlets,
   removes DB entry. Supports cascade, recurse, unneeded, nosave, dbonly flags.
 - **`resolver.v`**: Dependency resolution — `resolve_deps()`, `sort_by_deps()`,
-  `satisfied_by_localdb()`, provider selection.
+  `satisfied_by_localdb()` (uses pre-built `local_provides` index for O(1) provider
+  lookups instead of O(N) linear scan), provider selection.
 - **`conflict.v`**: File and package conflict detection during prepare phase.
 
 ### `download/` — HTTP Downloads
 
 Two-layer design:
 
-- **`fetcher.v`**: Single-file HTTP downloader with streaming to temp files,
+- **`fetcher.v`**: Single-file HTTP downloader with **streaming to temp files**
+  via `on_progress_body` (no in-memory buffering even for multi-GiB packages),
   Range-header resume, progress callbacks, and optional `.sig` auto-download.
 - **`parallel.v`**: Concurrent download orchestration using V `go` coroutines
-  and channels. A buffered semaphore channel limits concurrency. Payloads
-  with `errors_ok=true` never fail the batch.
+  and channels. A buffered semaphore channel limits concurrency (default: 7).
+  Uses the streaming `Downloader` from `fetcher.v` to avoid loading entire
+  response bodies into memory. Payloads with `errors_ok=true` never fail the batch.
 - **`sandbox.v`**: Privilege-dropping before HTTP requests. Resolves
   `DownloadUser` from `/etc/passwd`, then delegates setuid/setgid to
   `lib.drop_root_privileges()`.

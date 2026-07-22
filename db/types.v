@@ -301,26 +301,23 @@ pub fn compute_name_hash(s string) u64 {
 // build_grpcache populates a Database's grpcache from its pkgcache.
 // Each package's groups slice is scanned and the grpcache map is
 // populated with Group entries listing all packages in each group.
+// Uses a per-package seen-groups set to avoid both duplicate entries
+// from malformed metadata AND the O(n²) linear scan of the old code.
 pub fn build_grpcache(mut database Database) {
 	database.grpcache = map[string]Group{}
 	for _, pkg in database.pkgcache {
+		mut seen_groups := map[string]bool{}
 		for gname in pkg.groups {
+			if gname in seen_groups {
+				continue // duplicate group entry in package metadata
+			}
+			seen_groups[gname] = true
 			if g := database.grpcache[gname] {
-				// Append to existing group — ensure no duplicate.
-				mut found := false
-				for pn in g.packages {
-					if pn == pkg.name {
-						found = true
-						break
-					}
-				}
-				if !found {
-					mut new_pkgs := g.packages.clone()
-					new_pkgs << pkg.name
-					database.grpcache[gname] = Group{
-						name:     g.name
-						packages: new_pkgs
-					}
+				mut new_pkgs := g.packages.clone()
+				new_pkgs << pkg.name
+				database.grpcache[gname] = Group{
+					name:     g.name
+					packages: new_pkgs
 				}
 			} else {
 				database.grpcache[gname] = Group{

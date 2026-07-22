@@ -67,29 +67,21 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 		r.free()
 	}
 
-	// First pass: count non-metadata entries for progress display.
-	mut total_entries := 0
-	for {
-		e := r.next_header() or { break }
-		if !e.pathname().starts_with('.') {
-			total_entries++
-		}
-		r.skip_data() or {}
-	}
-	r.free()
-
-	if handle.debug_level > 0 {
-		eprintln('[DEBUG]   total entries to extract: ${total_entries}')
-	}
-
-	// Second pass: extract.
-	r = va.new_reader()
-	r.open(archive_path)!
+	// Pre-allocate generous file-list capacity to avoid repeated
+	// reallocation during extraction.  Most packages have < 10k files.
+	pkg.files = db.FileList{files: []db.FileInfo{cap: 10000}}
 
 	mut extracted := 0
-	mut last_pct := 0
-	bar_width := 40
+	// Reusable read buffer — allocated once, zeroed on first use.
+	// Avoids ~1000+ small allocations per package for the old per-file
+	// buf := []u8{len: 8192} inside the loop.
+	mut read_buf := []u8{len: 8192}
 
+	// Single-pass extraction — no separate counting pass.
+	// The first pass in the old code decompressed every entry just to
+	// count them, effectively doubling the decompression I/O for every
+	// package install.  We display a file-count progress instead of a
+	// percentage, which costs nothing.
 	for {
 		entry := r.next_header() or { break }
 		entry_name := entry.pathname()
@@ -149,57 +141,48 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 				}
 			}
 
-			// Read the file payload from the archive.
-			entry_size := entry.size()
-			mut data := []u8{}
-			if entry_size > 0 {
-				data = []u8{cap: int(entry_size)}
-				mut buf := []u8{len: 8192}
-				for {
-					n := r.read_data(mut buf) or { break }
-					if n <= 0 {
-						break
-					}
-					data << buf[..n]
-				}
-			}
-			r.skip_data() or {}
-
 			// Remove existing file at destination if overwriting.
 			if os.exists(dest_path) && !os.is_dir(dest_path) {
 				os.rm(dest_path) or {}
 			}
 
-			os.write_file(dest_path, data.bytestr()) or {
-				return error('cannot write file ${dest_path}: ${err}')
+			// Stream file payload directly to disk — no intermediate
+			// in-memory buffer for the entire file.  Previously the
+			// entire entry was read into a []u8 then written via
+			// os.write_file, which doubled memory for large files
+			// (e.g. 80 MiB libLLVM.so).
+			mut out := os.open_file(dest_path, 'wb', 0o644) or {
+				r.skip_data() or {}
+				return error('cannot open ${dest_path}: ${err}')
 			}
+			for {
+				n := r.read_data(mut read_buf) or { break }
+				if n <= 0 {
+					break
+				}
+				out.write(read_buf[..n]) or {
+					out.close()
+					r.skip_data() or {}
+					return error('write to ${dest_path} failed: ${err}')
+				}
+			}
+			out.close()
+			r.skip_data() or {}
 			os.chmod(dest_path, int(entry.mode())) or {}
 		} else {
 			// Hardlinks or unknown entry types — skip.
 			r.skip_data() or {}
 		}
 
-		// Progress bar display.
+		// File-count progress display (no percentage since we don't pre-count).
 		extracted++
-		if total_entries > 0 {
-			pct := extracted * 100 / total_entries
-			if pct > last_pct {
-				last_pct = pct
-				filled := bar_width * extracted / total_entries
-				mut bar := ''
-				for _ in 0 .. filled {
-					bar += '#'
-				}
-				for _ in filled .. bar_width {
-					bar += ' '
-				}
-				print('\r  [${bar}] ${pct:3}% (${extracted}/${total_entries})')
-			}
+		if extracted % 100 == 1 {
+			print('\r  extracting: ${extracted} files...')
 		}
 	}
 
-	if total_entries > 0 {
-		println('\r  [${'#'.repeat(bar_width)}] 100% (${extracted}/${total_entries})')
+	if extracted > 0 {
+		println('\r  extracted ${extracted} files')
 	}
 }
 

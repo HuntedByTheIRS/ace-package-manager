@@ -77,6 +77,19 @@ pub fn (mut d Downloader) init(user_agent string, timeout_ms i64, cb ProgressCal
 // On failure the partial file is removed (unless allow_resume is true,
 // which preserves it for a future retry).
 pub fn (mut d Downloader) download(payload DownloadPayload) ! {
+	// --- skip if file already exists and not forced --------------------------
+	if !payload.force && os.exists(payload.dest_path) {
+		// Still auto-download .sig if requested (may be missing).
+		if payload.sig_download {
+			d.download_sig(payload.dest_path, payload.url, payload.sig_optional) or {
+				if !payload.sig_optional {
+					return err
+				}
+			}
+		}
+		return
+	}
+
 	// --- resolve temp path --------------------------------------------------
 	mut temp_path := payload.temp_path
 	if temp_path == '' {
@@ -188,21 +201,33 @@ pub fn (mut d Downloader) download(payload DownloadPayload) ! {
 	// from scratch without Range to get a clean copy.
 	if resp.status_code == 200 && offset > 0 {
 		os.rm(temp_path) or {}
-		// Retry without Range — fresh download, write mode.
+		// Retry without Range — fresh download, streaming to file.
 		mut retry_req := http.new_request(.get, payload.url, '')
 		retry_req.user_agent = d.user_agent
 		retry_req.allow_redirect = true
 		retry_req.read_timeout = d.timeout * time.millisecond
 		retry_req.stop_copying_limit = 0
 
+		mut rf := os.open_file(temp_path, 'wb', 0o644) or {
+			return error('failed to open retry temp file "${temp_path}": ${err.msg()}')
+		}
+		retry_req.on_progress_body = fn [mut rf] (_ &http.Request, chunk []u8, _ u64, _ u64,
+			status_code int,
+		) ! {
+			if chunk.len > 0 && (status_code == 200 || status_code == 0) {
+				rf.write(chunk) or {
+					return error('retry write failed: ${err.msg()}')
+				}
+			}
+		}
+
 		retry_resp := retry_req.do() or {
+			rf.close()
 			return error('retry download for "${payload.url}" failed: ${err.msg()}')
 		}
+		rf.close()
 		if retry_resp.status_code != 200 {
 			return error('retry download for "${payload.url}" failed: HTTP ${retry_resp.status_code}')
-		}
-		os.write_file(temp_path, retry_resp.body) or {
-			return error('failed to write retry download: ${err.msg()}')
 		}
 	}
 

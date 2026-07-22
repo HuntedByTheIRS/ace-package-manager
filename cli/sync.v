@@ -156,31 +156,80 @@ fn filter_sync_repos(cfg &config.Config) []config.Repo {
 //  Database refresh (-Sy / -Syy)
 // ===========================================================================
 
-// refresh_databases downloads the package database for each configured repo.
+// refresh_databases downloads package databases for all configured repos
+// in parallel, with colored progress bars and cache-aware skipping.
 fn refresh_databases(sync_count int, repos []config.Repo, sync_dir string) ! {
 	force := sync_count >= 2
 
 	println(heading_str('Synchronizing package databases...'))
 
-	mut errors := []string{}
+	// Build download payloads for repos that need fetching.
+	// Skip repos whose .db file already exists unless forced (-Syy).
+	mut db_payloads := []download.DownloadPayload{}
+	mut db_repos := []config.Repo{}
+
 	for repo in repos {
-		repo_sync(repo, sync_dir, force) or {
-			errors << '${repo.name}: ${err.msg()}'
+		treename := repo.name
+		db_path := os.join_path(sync_dir, '${treename}.db')
+
+		// Cache check: skip if DB exists and not forced.
+		if !force && os.exists(db_path) {
+			continue
 		}
+
+		need_db_sig := int(repo.siglevel) & (int(config.SigLevel.database_required) |
+			int(config.SigLevel.database_optional)) != 0
+		sig_optional := int(repo.siglevel) & int(config.SigLevel.database_optional) != 0
+
+		// Use first server (parallel download doesn't iterate servers).
+		if repo.servers.len == 0 {
+			continue
+		}
+		resolved := repo.servers[0].replace('\$repo', treename)
+		base := if resolved.ends_with('/') { resolved } else { resolved + '/' }
+		url := '${base}${treename}.db'
+
+		db_payloads << download.DownloadPayload{
+			url:          url
+			filename:     '${treename}.db'
+			dest_path:    db_path
+			force:        force
+			sig_download: need_db_sig
+			sig_optional: sig_optional
+			allow_resume: false
+			max_size:     128 * 1024 * 1024 // 128 MiB hard limit
+		}
+		db_repos << repo
 	}
 
-	if errors.len == repos.len {
-		return error('failed to sync all databases: ${errors.join("; ")}')
+	if db_payloads.len == 0 {
+		println('  all databases are up to date')
+		return
 	}
-	if errors.len > 0 {
-		eprintln(warn('some databases failed to sync: ${errors.join("; ")}'))
+
+	// Download all DBs in parallel with progress bars.
+	download_parallel_files(db_payloads, 7)
+
+	// Write .lastupdate timestamps for successfully downloaded DBs.
+	now := time.unix_now()
+	for repo in db_repos {
+		treename := repo.name
+		os.write_file(os.join_path(sync_dir, '${treename}.lastupdate'), '${now}\n') or {
+			eprintln(warn('cannot write .lastupdate for ${treename}: ${err}'))
+		}
 	}
 }
 
 // repo_sync downloads the database (and signature) for a single repository.
+// Used by -Fy (files database refresh) with cache-aware skipping.
 fn repo_sync(repo config.Repo, sync_dir string, force bool) ! {
 	treename := repo.name
 	db_path := os.join_path(sync_dir, '${treename}.db')
+
+	// Cache: skip if DB file exists and not forced (matching refresh_databases).
+	if !force && os.exists(db_path) {
+		return
+	}
 
 	need_db_sig := int(repo.siglevel) & (int(config.SigLevel.database_required) |
 		int(config.SigLevel.database_optional)) != 0
@@ -189,7 +238,7 @@ fn repo_sync(repo config.Repo, sync_dir string, force bool) ! {
 	mut dl := download.Downloader{}
 	dl.init('ace/0.1', 30000, fn (pct int, msg string) {
 		if pct >= 0 {
-			print('\r  ${pct}%')
+			print('\r  ${progress_bar_str(pct, 30)}')
 		}
 	})
 
@@ -200,7 +249,7 @@ fn repo_sync(repo config.Repo, sync_dir string, force bool) ! {
 		base := if resolved.ends_with('/') { resolved } else { resolved + '/' }
 		url := '${base}${treename}.db'
 
-		print('  ${treename}: downloading ${treename}.db... ')
+		print('  ${treename}: downloading ${treename}.db...\n')
 		dl.download(download.DownloadPayload{
 			url:            url
 			filename:       '${treename}.db'
@@ -211,11 +260,12 @@ fn repo_sync(repo config.Repo, sync_dir string, force bool) ! {
 			allow_resume:   false
 			max_size:       128 * 1024 * 1024 // 128 MiB hard limit
 		}) or {
-			print('failed (${err.msg()})\n')
+			print('\r\033[K')
+			println('  ${treename}: failed (${err.msg()})')
 			last_db_err = err
 			continue
 		}
-		print('done\n')
+		print('\r\033[K  ${treename}: ${ok('done')}\n')
 
 		// Log the successful sync timestamp.
 		now := time.unix_now()
@@ -232,32 +282,73 @@ fn repo_sync(repo config.Repo, sync_dir string, force bool) ! {
 //  Load sync databases
 // ===========================================================================
 
+// DBResult is used by load_sync_dbs for channel-based result collection
+// from parallel goroutines. Must be at module scope so V generates a
+// single C type across all closures.
+struct DBResult {
+	database  &db.Database
+	repo_name string
+	err_msg   string
+}
+
 // load_sync_dbs loads all sync database files into Database structs.
+// Each repo's .db.tar is parsed in a parallel goroutine since populate()
+// operates on its own SyncDB/ArchiveReader instances with no shared state.
 fn load_sync_dbs(repos []config.Repo, sync_dir string) ![]&db.Database {
+	if repos.len == 0 {
+		return []&db.Database{}
+	}
+
+	// Result type for channel-based collection from goroutines.
+	result_ch := chan DBResult{cap: repos.len}
+
+	for repo in repos {
+		go fn [repo, sync_dir, result_ch]() {
+			db_path := os.join_path(sync_dir, '${repo.name}.db')
+			if !os.exists(db_path) {
+				result_ch <- DBResult{
+					database: unsafe { nil }
+					repo_name: repo.name
+					err_msg: '${repo.name}: database not found at ${db_path}'
+				}
+				return
+			}
+
+			mut sdb := db.new_sync_db()
+			db.populate(mut sdb, db_path) or {
+				result_ch <- DBResult{
+					database: unsafe { nil }
+					repo_name: repo.name
+					err_msg: '${repo.name}: ${err.msg()}'
+				}
+				return
+			}
+
+			mut database := &db.Database{
+				pkgcache: sdb.pkgcache
+				name:     repo.name
+				servers:  repo.servers
+			}
+			db.build_grpcache(mut database)
+
+			result_ch <- DBResult{
+				database:  database
+				repo_name: repo.name
+			}
+		}()
+	}
+
+	// Collect results preserving insertion-agnostic ordering.
 	mut result := []&db.Database{}
 	mut errors := []string{}
 
-	for repo in repos {
-		db_path := os.join_path(sync_dir, '${repo.name}.db')
-		if !os.exists(db_path) {
-			errors << '${repo.name}: database not found at ${db_path}'
-			continue
+	for _ in 0 .. repos.len {
+		r := <-result_ch
+		if r.err_msg != '' {
+			errors << r.err_msg
+		} else {
+			result << r.database
 		}
-
-		mut sdb := db.new_sync_db()
-		db.populate(mut sdb, db_path) or {
-			errors << '${repo.name}: ${err.msg()}'
-			continue
-		}
-
-		mut database := &db.Database{
-			pkgcache: sdb.pkgcache
-			name:     repo.name
-			servers:  repo.servers
-		}
-		db.build_grpcache(mut database)
-
-		result << database
 	}
 
 	if result.len == 0 {
@@ -632,7 +723,7 @@ fn sync_list_dbs(syncdbs []&db.Database, targets []string, dbpath string, quiet 
 			if ldb := db.init(dbpath) {
 				mut ldb_mut := ldb
 				ldb_mut.populate() or {}
-				                local_pkgcache = ldb_mut.pkgcache.clone().clone()
+				                local_pkgcache = ldb_mut.pkgcache.clone()
 			}
 		}
 	}
@@ -703,6 +794,10 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	resolve_hnd := &trans.ResolveHandle{
 		ignorepkgs:   ignorepkgs
 		ignoregroups: ignoregroups
+		// Pre-build local provides index for O(1) provider lookups
+		// during dependency resolution.  Without this, satisfied_by_localdb
+		// does an O(N) scan of every installed package per dependency.
+		local_provides: build_local_provides(localdb)
 	}
 
 	// 5. Set up transaction flags.
@@ -763,7 +858,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 			cmp := util.vercmp(sync_pkg.version, local_pkg.version)
 
 			if cmp > 0 {
-				// Newer version available.
+				// Newer version available — upgrade.
 				if pkg_names_added[sync_pkg.name] {
 					continue
 				}
@@ -779,16 +874,9 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 				pkg_names_added[sync_pkg.name] = true
 				println('  downgrading ${local_name} (${local_pkg.version} -> ${sync_pkg.version})')
 			} else {
-				// Same version (or local is newer without -Suu).
-				if !args.needed || args.download_only {
-					// If --needed, skip up-to-date packages.
-					if pkg_names_added[sync_pkg.name] {
-						continue
-					}
-					pkg_targets << sync_pkg
-					pkg_names_added[sync_pkg.name] = true
-					println('  reinstalling ${local_name} (${local_pkg.version})')
-				}
+				// Same version or local is newer — skip.
+				// Downgrade without -Suu is not performed; same-version
+				// packages do not need reinstallation.
 			}
 		}
 	}
@@ -1171,7 +1259,10 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	}
 
 	// 13a. Run pre-transaction hooks before any package installation.
-	run_pre_hooks(handle, display_pkgs, []&db.Package{})
+	// Create the hook engine once — cached_hooks avoids re-parsing .hook
+	// files from disk for every subsequent per-package post-install call.
+	mut hook_engine := hooks.new_hook_engine(handle)
+	run_pre_hooks(mut hook_engine, display_pkgs, []&db.Package{})
 
 	for i in 0 .. display_pkgs.len {
 		p := display_pkgs[i]
@@ -1215,7 +1306,10 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		}
 
 		old_pkg := if old := localdb.pkgcache[p.name] { old } else { none }
-		// Create a mutable copy with the local file path for install.
+		// Create an install copy — only filename, origin, and files differ
+		// from the sync DB entry.  All dependency arrays (depends, provides,
+		// conflicts, etc.) are shared via slice-header copy — they are
+		// never modified during install, so cloning them is wasteful.
 		mut install_pkg := unsafe { &db.Package{} }
 		install_pkg.name = p.name
 		install_pkg.name_hash = p.name_hash
@@ -1230,23 +1324,22 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		install_pkg.install_date = p.install_date
 		install_pkg.isize = p.isize
 		install_pkg.download_size = p.download_size
-		install_pkg.licenses = p.licenses.clone()
-		install_pkg.replaces = p.replaces.clone()
-		install_pkg.groups = p.groups.clone()
-		install_pkg.depends = p.depends.clone()
-		install_pkg.optdepends = p.optdepends.clone()
-		install_pkg.conflicts = p.conflicts.clone()
-		install_pkg.provides = p.provides.clone()
+		install_pkg.licenses = p.licenses // shared — never mutated
+		install_pkg.replaces = p.replaces
+		install_pkg.groups = p.groups
+		install_pkg.depends = p.depends
+		install_pkg.optdepends = p.optdepends
+		install_pkg.conflicts = p.conflicts
+		install_pkg.provides = p.provides
 		install_pkg.origin = .local_db
 		install_pkg.reason = p.reason
 		install_pkg.validation = p.validation
 		install_pkg.scriptlet = p.scriptlet
 		install_pkg.sha256sum = p.sha256sum
 		install_pkg.base64_sig = p.base64_sig
-
-		// Copy file list and backup files from sync DB
-		for f in p.files.files { install_pkg.files.files << f }
-		for b in p.backup { install_pkg.backup << b }
+		// files.files and backup are NOT pre-copied — extract_package_files
+		// clears pkg.files (line 39 of trans/install.v) and repopulates from
+		// the archive, so any pre-copied data would be discarded.
 
 		trans.install_package(handle, mut install_pkg, old_pkg) or {
 			install_errors << '${p.name}: ${err.msg()}'
@@ -1255,7 +1348,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		localdb.pkgcache[p.name] = install_pkg
 
 		// Run post-install hooks for this specific package.
-		run_post_install_hook(handle, install_pkg)
+		run_post_install_hook(mut hook_engine, install_pkg)
 	}
 
 	if install_errors.len > 0 {
@@ -1263,7 +1356,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	}
 
 	// Run post-transaction hooks (initramfs, font cache, etc.).
-	run_post_hooks(handle, display_pkgs, []&db.Package{})
+	run_post_hooks(mut hook_engine, display_pkgs, []&db.Package{})
 
 	println(heading_str('done'))
 }
@@ -1275,16 +1368,23 @@ struct DLResult {
 	ok       bool
 }
 
+// DLProg carries per-file download progress updates from goroutines.
+struct DLProg {
+	idx int
+	pct int
+}
+
 // download_parallel_files downloads multiple files concurrently using
-// goroutines for true parallelism.  Each download runs independently,
-// with per-file completion status and a running counter at the bottom.
-// Semaphore is acquired inside goroutines to prevent slot leaks on panic.
+// goroutines for true parallelism, with real-time colored progress bars
+// per active download.  A semaphore limits concurrency (pre-fetched
+// tokens prevent slot leaks on panic).  Progress is collected from each
+// goroutine and rendered as multi-line ANSI bars.
 fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloads int) {
 	if payloads.len == 0 {
 		return
 	}
 
-	max_conc := if parallel_downloads > 0 { parallel_downloads } else { 1 }
+	max_conc := if parallel_downloads > 0 { parallel_downloads } else { 7 }
 	total := payloads.len
 
 	// Semaphore channel: pre-fill with max_conc tokens.
@@ -1294,69 +1394,182 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 	}
 	result_ch := chan DLResult{cap: total}
 
-	mut completed := 0
-	mut failures := 0
+	// Progress channel for real-time bar updates.
+	prog_ch := chan DLProg{cap: total * 200}
 
-	println('')
+	// Build display filenames (truncated).
+	mut disp_names := []string{len: total}
 	for i, payload in payloads {
-		dn := if payload.filename.len > 45 {
-			payload.filename.substr(0, 42) + '...'
+		disp_names[i] = if payload.filename.len > 42 {
+			payload.filename[..39] + '...'
 		} else {
 			payload.filename
 		}
+	}
 
-		println('  ${dn} downloading...')
+	// Current progress per index (updated by render goroutine).
+	mut prog_map := []int{len: total, init: -1}
+	mut done_map := []bool{len: total}
 
-		// Spawn goroutine — acquires semaphore internally to prevent
-		// slot leak if the main goroutine is interrupted before spawn.
-		go fn [payload, dn, i, sem, result_ch]() {
-			// Acquire semaphore slot (blocks if max_conc slots busy).
+	// Spawn download goroutines.
+	println('')
+	for i, payload in payloads {
+		go fn [payload, i, sem, result_ch, prog_ch]() {
 			_ = <-sem
-			// Release slot on exit (normal, error, or panic).
 			defer {
 				sem <- 0
 			}
 
-			// Always report result, even on panic.
 			mut download_ok := false
 			defer {
 				result_ch <- DLResult{
 					idx: i
-					filename: dn
+					filename: ''
 					ok: download_ok
+				}
+				// Signal completion with 100%.
+				prog_ch <- DLProg{
+					idx: i
+					pct: 100
 				}
 			}
 
 			mut dl := download.Downloader{}
-			dl.init('ace/0.1', 60000, fn (pct int, msg string) {})
+			dl.init('ace/0.1', 60000, fn [i, prog_ch] (pct int, _ string) {
+				if pct >= 0 {
+					prog_ch <- DLProg{
+						idx: i
+						pct: pct
+					}
+				}
+			})
 			dl.download(payload) or { return }
 			download_ok = true
 		}()
 	}
 
-	// Collect results with per-file status.
-	for _ in 0 .. total {
-		r := <-result_ch
-		completed++
-		if !r.ok {
-			failures++
-			println('  ${completed}/${total} ${r.filename} ${warn('FAILED')}')
-		} else {
-			println('  ${completed}/${total} ${r.filename} ${ok('done')}')
+	// --- collect results while rendering progress bars ---
+
+	// Track how many lines we printed so we can clear them at the end.
+	mut bar_lines := 0
+
+	mut completed := 0
+	mut failures := 0
+
+	redraw_bars := fn [disp_names, prog_map, done_map, total, max_conc, mut bar_lines] () {
+		// Count active downloads.
+		mut active := 0
+		for i in 0 .. total {
+			if !done_map[i] && prog_map[i] >= 0 {
+				active++
+			}
+		}
+		if active == 0 && bar_lines == 0 {
+			return
+		}
+
+		// Move cursor up to previous render position.
+		if bar_lines > 0 {
+			print('\033[${bar_lines}A')
+		}
+
+		mut drawn := 0
+		for i in 0 .. total {
+			if done_map[i] || prog_map[i] < 0 {
+				continue
+			}
+			mut pct := prog_map[i]
+			if pct > 100 {
+				pct = 100
+			}
+			bar := progress_bar_str(pct, 30)
+			print('\r\033[K  ${bar} ${disp_names[i]}\n')
+			drawn++
+			if drawn >= max_conc {
+				break
+			}
+		}
+
+		// Clear leftover lines if the bar count decreased.
+		if drawn < bar_lines {
+			for _ in drawn .. bar_lines {
+				print('\033[K\n')
+			}
+			// Move back up past cleared lines.
+			print('\033[${bar_lines - drawn}A')
+		}
+		bar_lines = drawn
+	}
+
+	// Collect results — render bars after each progress update or result.
+	mut collected := 0
+	for collected < total {
+		select {
+			r := <-result_ch {
+				collected++
+				completed++
+				done_map[r.idx] = true
+				if !r.ok {
+					failures++
+					print('\r\033[K  ${disp_names[r.idx]} ${warn('FAILED')}\n')
+				} else {
+					print('\r\033[K  ${disp_names[r.idx]} ${ok('done')}\n')
+				}
+				bar_lines = 0 // reset — we printed final results above
+				// Render remaining active bars.
+				redraw_bars()
+			}
+			p := <-prog_ch {
+				prog_map[p.idx] = p.pct
+				redraw_bars()
+			}
 		}
 	}
 
-	println('')
-	print('  ' + progress('Downloaded: ${completed}/${total}'))
+	// Final summary line.
+	if bar_lines > 0 {
+		print('\033[${bar_lines}A')
+		for _ in 0 .. bar_lines {
+			print('\033[K\n')
+		}
+		print('\033[${bar_lines}A')
+	}
+	print('\r\033[K  ' + progress('Downloaded: ${completed}/${total}'))
 	if failures > 0 {
 		println('  ' + warn('(${failures} failed)'))
 	} else {
 		println('')
 	}
+	println('')
 
 	if failures > 0 {
 		eprintln(warn('${failures}/${total} downloads failed'))
 	}
+}
+
+// progress_bar_str renders a colored progress bar like "[#####-----]  47%".
+fn progress_bar_str(pct int, width int) string {
+	mut filled := pct
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > 100 {
+		filled = 100
+	}
+	n := filled * width / 100
+	mut bar := '['
+	for i in 0 .. width {
+		if i < n {
+			bar += '#'
+		} else {
+			bar += '-'
+		}
+	}
+	bar += ']'
+	if pct >= 0 {
+		bar += ' ${filled:3d}%'
+	}
+	return bar
 }
 
 fn heading_str(s string) string { return heading(s) }
@@ -1365,13 +1578,12 @@ fn sync_ver(s string) string { return pkg_version(s) }
 fn pkg_head(s string) string { return pkg(s) }
 
 // run_pre_hooks executes pre-transaction hooks before any package
-// installation begins.  Pre-transaction hooks may abort the transaction
-// if AbortOnFail is set.
-fn run_pre_hooks(handle &util.Handle, add_pkgs []&db.Package, remove_pkgs []&db.Package) {
-	if handle.hookedirs.len == 0 {
+// installation begins.  Uses the shared hook_engine so cached .hook
+// file parses survive for subsequent per-package post-install calls.
+fn run_pre_hooks(mut engine hooks.HookEngine, add_pkgs []&db.Package, remove_pkgs []&db.Package) {
+	if engine.handle.hookedirs.len == 0 {
 		return
 	}
-	mut engine := hooks.new_hook_engine(handle)
 	mut util_pkgs := []&util.Package{}
 	for p in add_pkgs {
 		util_pkgs << &util.Package{
@@ -1393,13 +1605,12 @@ fn run_pre_hooks(handle &util.Handle, add_pkgs []&db.Package, remove_pkgs []&db.
 }
 
 // run_post_install_hook executes post-install hooks for a single package
-// immediately after it has been installed.  This runs PostTransaction
-// hooks whose triggers match this specific package's name.
-fn run_post_install_hook(handle &util.Handle, pkg db.Package) {
-	if handle.hookedirs.len == 0 {
+// immediately after it has been installed.  Uses the shared engine so
+// .hook files are parsed only once across all packages in the transaction.
+fn run_post_install_hook(mut engine hooks.HookEngine, pkg db.Package) {
+	if engine.handle.hookedirs.len == 0 {
 		return
 	}
-	mut engine := hooks.new_hook_engine(handle)
 	util_pkgs := [&util.Package{
 		name:    pkg.name
 		version: pkg.version
@@ -1410,11 +1621,10 @@ fn run_post_install_hook(handle &util.Handle, pkg db.Package) {
 	}
 }
 
-fn run_post_hooks(handle &util.Handle, add_pkgs []&db.Package, _ []&db.Package) {
-	if handle.hookedirs.len == 0 {
+fn run_post_hooks(mut engine hooks.HookEngine, add_pkgs []&db.Package, _ []&db.Package) {
+	if engine.handle.hookedirs.len == 0 {
 		return
 	}
-	mut engine := hooks.new_hook_engine(handle)
 	mut util_pkgs := []&util.Package{}
 	for p in add_pkgs {
 		util_pkgs << &util.Package{
@@ -1426,4 +1636,19 @@ fn run_post_hooks(handle &util.Handle, add_pkgs []&db.Package, _ []&db.Package) 
 	engine.run_post(util_pkgs) or {
 		eprintln('warning: post-transaction hook failed: ${err}')
 	}
+}
+
+// build_local_provides builds an index from virtual provider names to the
+// installed packages that provide them.  Used by the resolver for O(1)
+// lookups instead of scanning every package's provides list linearly.
+fn build_local_provides(localdb &db.Database) map[string][]&db.Package {
+	mut idx := map[string][]&db.Package{}
+	for _, pkg in localdb.pkgcache {
+		for prov in pkg.provides {
+			mut list := idx[prov.name] or { []&db.Package{} }
+			list << pkg
+			idx[prov.name] = list
+		}
+	}
+	return idx
 }

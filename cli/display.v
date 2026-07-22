@@ -26,6 +26,7 @@ const color_yellow = '\033[1;33m'
 const color_blue = '\033[1;34m'
 const color_magenta = '\033[1;35m'
 const color_cyan = '\033[1;36m'
+const color_dark_gray = '\033[38;5;240m'
 const color_reset = '\033[0m'
 const bar_width = 35
 
@@ -53,7 +54,8 @@ fn colorize(text string, c string) string {
 // Helpers
 // ===========================================================================
 
-// progress_bar renders a text progress bar like "[#######----] 73%".
+// progress_bar renders a colored text progress bar like "[#######----] 73%".
+// The filled portion uses green, the empty portion uses dark gray.
 fn progress_bar(pct int, width int) string {
 	mut filled := pct
 	if filled < 0 {
@@ -66,14 +68,14 @@ fn progress_bar(pct int, width int) string {
 	mut bar := '['
 	for i in 0 .. width {
 		if i < n {
-			bar += '#'
+			bar += colorize('#', color_green)
 		} else {
-			bar += '-'
+			bar += colorize('-', color_dark_gray)
 		}
 	}
 	bar += ']'
 	if pct >= 0 {
-		bar += ' ${filled}%'
+		bar += ' ' + colorize('${filled:3d}%', color_green)
 	}
 	return bar
 }

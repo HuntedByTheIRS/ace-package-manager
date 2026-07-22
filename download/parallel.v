@@ -14,7 +14,6 @@
 //   pacman/lib/libalpm/alpm.h:2288-2300  — parallel_downloads
 module download
 
-import net.http
 import os
 import util
 
@@ -119,6 +118,8 @@ struct DownloadResult {
 }
 
 // download_worker executes a single download and reports the result.
+// Uses the streaming Downloader from fetcher.v instead of http.get()
+// to avoid buffering the entire response body in memory.
 fn download_worker(payload DownloadPayload, sem chan int,
 	result_ch chan DownloadResult) {
 	// release the semaphore slot when we finish
@@ -135,87 +136,12 @@ fn download_worker(payload DownloadPayload, sem chan int,
 		return
 	}
 
-	// --- determine temporary path -------------------------------------------
-	temp_path := if payload.temp_path != '' {
-		payload.temp_path
-	} else {
-		payload.dest_path + '.part'
-	}
-
-	// --- HTTP GET -----------------------------------------------------------
-	resp := http.get(payload.url) or {
-		if !payload.errors_ok {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  false
-				err_msg:  err.msg()
-			}
-		} else {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  true
-			}
-		}
-		return
-	}
-
-	if resp.status_code != 200 {
-		msg := 'HTTP ${resp.status_code}'
-		if !payload.errors_ok {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  false
-				err_msg:  msg
-			}
-		} else {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  true
-			}
-		}
-		return
-	}
-
-	body := resp.body
-
-	// --- enforce max_size ---------------------------------------------------
-	if payload.max_size > 0 && u64(body.len) > payload.max_size {
-		msg := 'file exceeds ${payload.max_size} byte limit (got ${body.len})'
-		if !payload.errors_ok {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  false
-				err_msg:  msg
-			}
-		} else {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  true
-			}
-		}
-		return
-	}
-
-	// --- write temp file ----------------------------------------------------
-	os.write_file(temp_path, body) or {
-		if !payload.errors_ok {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  false
-				err_msg:  err.msg()
-			}
-		} else {
-			result_ch <- DownloadResult{
-				filename: payload.filename
-				success:  true
-			}
-		}
-		return
-	}
-
-	// --- atomically rename temp → dest --------------------------------------
-	os.mv(temp_path, payload.dest_path) or {
-		os.rm(temp_path) or {}
+	// --- streaming download via Downloader (temp file + atomic rename) --------
+	// This replaces the old http.get() approach which loaded the entire
+	// response body into memory — disastrous for multi-GB packages.
+	mut dl := Downloader{}
+	dl.init('ace/0.1', 60000, fn (pct int, msg string) {})
+	dl.download(payload) or {
 		if !payload.errors_ok {
 			result_ch <- DownloadResult{
 				filename: payload.filename

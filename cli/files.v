@@ -202,34 +202,62 @@ fn repo_sync_files(repo config.Repo, sync_dir string, force bool) ! {
 // ===========================================================================
 
 fn load_sync_dbs_files(repos []config.Repo, sync_dir string) ![]&db.Database {
+	if repos.len == 0 {
+		return []&db.Database{}
+	}
+
+	result_ch := chan DBResult{cap: repos.len}
+
+	for repo in repos {
+		go fn [repo, sync_dir, result_ch]() {
+			// Try .files database first (from -Fy), fall back to .db (from -Sy).
+			mut db_path := os.join_path(sync_dir, '${repo.name}.files')
+			if !os.exists(db_path) {
+				db_path = os.join_path(sync_dir, '${repo.name}.db')
+			}
+			if !os.exists(db_path) {
+				result_ch <- DBResult{
+					database: unsafe { nil }
+					repo_name: repo.name
+					err_msg: '${repo.name}: database not found'
+				}
+				return
+			}
+
+			mut sdb := db.new_sync_db()
+			db.populate(mut sdb, db_path) or {
+				result_ch <- DBResult{
+					database: unsafe { nil }
+					repo_name: repo.name
+					err_msg: '${repo.name}: ${err.msg()}'
+				}
+				return
+			}
+
+			mut database := &db.Database{
+				pkgcache: sdb.pkgcache
+				name:     repo.name
+				servers:  repo.servers
+			}
+			db.build_grpcache(mut database)
+
+			result_ch <- DBResult{
+				database:  database
+				repo_name: repo.name
+			}
+		}()
+	}
+
 	mut result := []&db.Database{}
 	mut errors := []string{}
 
-	for repo in repos {
-		// Try .files database first (from -Fy), fall back to .db (from -Sy).
-		mut db_path := os.join_path(sync_dir, '${repo.name}.files')
-		if !os.exists(db_path) {
-			db_path = os.join_path(sync_dir, '${repo.name}.db')
+	for _ in 0 .. repos.len {
+		r := <-result_ch
+		if r.err_msg != '' {
+			errors << r.err_msg
+		} else {
+			result << r.database
 		}
-		if !os.exists(db_path) {
-			errors << '${repo.name}: database not found at ${db_path}'
-			continue
-		}
-
-		mut sdb := db.new_sync_db()
-		db.populate(mut sdb, db_path) or {
-			errors << '${repo.name}: ${err.msg()}'
-			continue
-		}
-
-		mut database := &db.Database{
-			pkgcache: sdb.pkgcache
-			name:     repo.name
-			servers:  repo.servers
-		}
-		db.build_grpcache(mut database)
-
-		result << database
 	}
 
 	if result.len == 0 {

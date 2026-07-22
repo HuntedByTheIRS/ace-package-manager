@@ -9,6 +9,7 @@
 module db
 
 import os
+import strings
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -518,37 +519,37 @@ fn read_files_into(mut pkg Package, path string) ! {
 
 // write_desc_file writes a `desc` file in %KEY% format.
 fn write_desc_file(path string, pkg &Package) ! {
-	mut content := ''
+	mut sb := strings.new_builder(4096)
 
 	// Always write NAME and VERSION.
-	content += '%NAME%\n${pkg.name}\n\n'
-	content += '%VERSION%\n${pkg.version}\n\n'
+	sb.write_string('%NAME%\n${pkg.name}\n\n')
+	sb.write_string('%VERSION%\n${pkg.version}\n\n')
 
 	if pkg.base.len > 0 {
-		content += '%BASE%\n${pkg.base}\n\n'
+		sb.write_string('%BASE%\n${pkg.base}\n\n')
 	}
 	if pkg.desc.len > 0 {
-		content += '%DESC%\n${pkg.desc}\n\n'
+		sb.write_string('%DESC%\n${pkg.desc}\n\n')
 	}
 	if pkg.url.len > 0 {
-		content += '%URL%\n${pkg.url}\n\n'
+		sb.write_string('%URL%\n${pkg.url}\n\n')
 	}
 	if pkg.arch.len > 0 {
-		content += '%ARCH%\n${pkg.arch}\n\n'
+		sb.write_string('%ARCH%\n${pkg.arch}\n\n')
 	}
 	if pkg.packager.len > 0 {
-		content += '%PACKAGER%\n${pkg.packager}\n\n'
+		sb.write_string('%PACKAGER%\n${pkg.packager}\n\n')
 	}
 
 	// Dates and sizes — write only when non-zero.
 	if pkg.build_date > 0 {
-		content += '%BUILDDATE%\n${pkg.build_date}\n\n'
+		sb.write_string('%BUILDDATE%\n${pkg.build_date}\n\n')
 	}
 	if pkg.install_date > 0 {
-		content += '%INSTALLDATE%\n${pkg.install_date}\n\n'
+		sb.write_string('%INSTALLDATE%\n${pkg.install_date}\n\n')
 	}
 	if pkg.isize > 0 {
-		content += '%SIZE%\n${pkg.isize}\n\n'
+		sb.write_string('%SIZE%\n${pkg.isize}\n\n')
 	}
 
 	// Always write REASON.
@@ -557,102 +558,104 @@ fn write_desc_file(path string, pkg &Package) ! {
 		.depend { '1' }
 		.unknown { '-1' }
 	}
-	content += '%REASON%\n${reason_str}\n\n'
+	sb.write_string('%REASON%\n${reason_str}\n\n')
 
 	// Groups
 	if pkg.groups.len > 0 {
-		content += '%GROUPS%\n'
+		sb.write_string('%GROUPS%\n')
 		for g in pkg.groups {
-			content += '${g}\n'
+			sb.write_string('${g}\n')
 		}
-		content += '\n'
+		sb.write_string('\n')
 	}
 
 	// Licenses
 	if pkg.licenses.len > 0 {
-		content += '%LICENSE%\n'
+		sb.write_string('%LICENSE%\n')
 		for l in pkg.licenses {
-			content += '${l}\n'
+			sb.write_string('${l}\n')
 		}
-		content += '\n'
+		sb.write_string('\n')
 	}
 
 	// Validation
 	if int(pkg.validation) > 0 {
-		content += '%VALIDATION%\n'
+		sb.write_string('%VALIDATION%\n')
 		if int(pkg.validation) & int(PackageValidation.none) != 0 {
-			content += 'none\n'
+			sb.write_string('none\n')
 		}
 		if int(pkg.validation) & int(PackageValidation.sha256sum) != 0 {
-			content += 'sha256\n'
+			sb.write_string('sha256\n')
 		}
 		if int(pkg.validation) & int(PackageValidation.signature) != 0 {
-			content += 'pgp\n'
+			sb.write_string('pgp\n')
 		}
-		content += '\n'
+		sb.write_string('\n')
 	}
 
-	// Dependency lists.
-	content += write_dep_section('%REPLACES%', pkg.replaces)
-	content += write_dep_section('%DEPENDS%', pkg.depends)
-	content += write_dep_section('%OPTDEPENDS%', pkg.optdepends)
-	content += write_dep_section('%MAKEDEPENDS%', pkg.makedepends)
-	content += write_dep_section('%CHECKDEPENDS%', pkg.checkdepends)
-	content += write_dep_section('%CONFLICTS%', pkg.conflicts)
-	content += write_dep_section('%PROVIDES%', pkg.provides)
+	// Dependency lists — build via helper then write.
+	sb.write_string(write_dep_section('%REPLACES%', pkg.replaces))
+	sb.write_string(write_dep_section('%DEPENDS%', pkg.depends))
+	sb.write_string(write_dep_section('%OPTDEPENDS%', pkg.optdepends))
+	sb.write_string(write_dep_section('%MAKEDEPENDS%', pkg.makedepends))
+	sb.write_string(write_dep_section('%CHECKDEPENDS%', pkg.checkdepends))
+	sb.write_string(write_dep_section('%CONFLICTS%', pkg.conflicts))
+	sb.write_string(write_dep_section('%PROVIDES%', pkg.provides))
 
 	// XData
 	if pkg.xdata.len > 0 {
-		content += '%XDATA%\n'
+		sb.write_string('%XDATA%\n')
 		for xd in pkg.xdata {
-			content += '${xd.name}=${xd.value}\n'
+			sb.write_string('${xd.name}=${xd.value}\n')
 		}
-		content += '\n'
+		sb.write_string('\n')
 	}
 
-	os.write_file(path, content) or {
+	os.write_file(path, sb.str()) or {
 		return error('cannot write desc file "${path}": ${err}')
 	}
 }
 
 // write_dep_section returns a dependency section header and all its
 // entries as a string, followed by a trailing blank line, or an empty
-// string if the dependency list is empty.
+// string if the dependency list is empty.  Uses strings.Builder to
+// avoid O(n²) string concatenation.
 fn write_dep_section(header string, deps []Dependency) string {
 	if deps.len == 0 {
 		return ''
 	}
-	mut content := '${header}\n'
+	mut sb := strings.new_builder((deps.len + 2) * 30)
+	sb.write_string('${header}\n')
 	for dep in deps {
-		content += '${dep.to_string()}\n'
+		sb.write_string('${dep.to_string()}\n')
 	}
-	content += '\n'
-	return content
+	sb.write_string('\n')
+	return sb.str()
 }
 
 // write_files_file writes a `files` file with %FILES% and %BACKUP% sections.
 fn write_files_file(path string, pkg &Package) ! {
-	mut content := ''
+	mut sb := strings.new_builder(4096)
 
 	// %FILES% section
 	if pkg.files.files.len > 0 {
-		content += '%FILES%\n'
+		sb.write_string('%FILES%\n')
 		for f in pkg.files.files {
-			content += '${f.name}\n'
+			sb.write_string('${f.name}\n')
 		}
-		content += '\n'
+		sb.write_string('\n')
 	}
 
 	// %BACKUP% section
 	if pkg.backup.len > 0 {
-		content += '%BACKUP%\n'
+		sb.write_string('%BACKUP%\n')
 		for b in pkg.backup {
-			content += '${b.name}\t${b.hash}\n'
+			sb.write_string('${b.name}\t${b.hash}\n')
 		}
-		content += '\n'
+		sb.write_string('\n')
 	}
 
-	os.write_file(path, content) or {
+	os.write_file(path, sb.str()) or {
 		return error('cannot write files file "${path}": ${err}')
 	}
 }

@@ -68,7 +68,7 @@ pub mut:
 	noupgrade              []string
 	noextract              []string
 	checkspace             bool
-	parallel_downloads     int         = 1
+	parallel_downloads     int         = 7
 	siglevel               SigLevel
 	local_file_siglevel    SigLevel
 	remote_file_siglevel   SigLevel
