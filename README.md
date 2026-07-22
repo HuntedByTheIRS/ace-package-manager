@@ -17,9 +17,9 @@ migration from pacman.
 | **GPG keyring management** | `--keyring-init` / `--keyring-populate` — native keyring setup |
 | **Crimson UI** | Coloured output — headings, packages, versions, errors |
 | **Progress bar** | `[##########] 47% (158/335)` during extraction |
-| **Dependency tree** | `--deptree zsh` shows recursive tree with version constraints |
+| **Dependency tree** | `--deptree zsh` — recursive tree with arch, reason, version satisfaction, opt/build deps |
 | **Transaction history** | `--history` reads the log with coloured markers |
-| **All optional deps** | `--all-optional` installs every optional dependency |
+| **All optional deps** | `--all-optional` installs every optional dependency (also during `-Su`) |
 | **One-shot migration** | `--transfer` copies pacman data into ace's native directories |
 | **Dual-DB mode** | `--pacman` shares pacman's local database; native mode uses `/var/lib/ace/` |
 
@@ -62,9 +62,11 @@ doas ./ace --pacman -R fish
 | `--transfer` | Migrate all pacman data to ace native directories (requires root) |
 | `--keyring-init` | Initialize a fresh GPG keyring |
 | `--keyring-populate <name>` | Import keys from a keyring package |
-| `--all-optional` | Install all optional dependencies alongside the target |
+| `--all-optional` | Install all optional dependencies (also works during `-Su`) |
 | `--libs` | Check library-level deps with caching for speed |
 | `--extreme-libs` | Cross-reference with ldconfig, always fresh for accuracy |
+| `--needed` | Skip reinstalling packages already at the same version |
+| `--parallel=N` | Set concurrent download streams (default: 3, overrides config) |
 | `--sysupgrade` | Long form of `-Su` — upgrade all packages |
 | `--search` | Long form of `-Ss` — search sync databases |
 | `--ignoregroup <group>` | Ignore a package group during upgrades |

@@ -51,12 +51,14 @@ Two database types:
 
 - **LocalDB** (`/var/lib/pacman/local/`): A directory tree with one
   subdirectory per installed package (`name-version/`), each containing `desc`
-  and `files` files in `%KEY%` format. Read via `init()` + `populate()`.
+  and `files` files in `%KEY%` format. Read via `init()` + `populate()`
+  (prefers the newest version when duplicate directories exist).
   Write via `write_pkg()` (using `strings.Builder` for efficient string
-  construction) and `remove_pkg()`.
+  construction, and automatically removing old-version directories) and
+  `remove_pkg()`.
 
 - **SyncDB** (compressed `.db` archives): Tarballs fetched from repositories
-  in parallel (up to 7 concurrent via semaphore-gated goroutines) and cached
+  in parallel (up to 3 concurrent via semaphore-gated goroutines) and cached
   locally to avoid re-downloading when up-to-date.  Parsed via
   `archive.ArchiveReader`. Each entry in the archive is an
   `{name}-{version}/desc` file in `%KEY%` format plus optional `depends` and

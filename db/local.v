@@ -10,6 +10,7 @@ module db
 
 import os
 import strings
+import util
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -100,6 +101,13 @@ pub fn (mut ldb LocalDB) populate() ! {
 		}
 
 		if pkg.name in ldb.pkgcache {
+			// Keep the newer version if multiple directories exist
+			// (safety net — write_pkg normally removes old dirs).
+			if existing := ldb.pkgcache[pkg.name] {
+				if util.vercmp(pkg.version, existing.version) > 0 {
+					ldb.pkgcache[pkg.name] = pkg
+				}
+			}
 			continue
 		}
 
@@ -163,6 +171,12 @@ pub fn write_pkg(dbpath string, pkg &Package, infolevel int) ! {
 			return error('cannot write files file: ${err}')
 		}
 	}
+
+	// Remove any old-version directories for the same package.
+	// Without this, populate() would keep the first directory found
+	// alphabetically (e.g., openssh-10.4p1-2 before openssh-10.4p1-3),
+	// causing the old version to "win" and the upgrade to appear stuck.
+	remove_old_pkg_dirs(dbpath, pkg.name, pkg.version)
 }
 
 // remove_pkg removes a package's directory from the local database at
@@ -661,5 +675,35 @@ fn write_files_file(path string, pkg &Package) ! {
 
 	os.write_file(path, sb.str()) or {
 		return error('cannot write files file "${path}": ${err}')
+	}
+}
+
+// remove_old_pkg_dirs removes any local DB directories for the given
+// package name whose version differs from `current_version`.  Without
+// this, populate() would keep the first directory found alphabetically,
+// causing old versions to shadow new ones after an upgrade.
+fn remove_old_pkg_dirs(dbpath string, pkgname string, current_version string) {
+	local_dir := os.join_path(dbpath, 'local')
+	entries := os.ls(local_dir) or { return }
+	prefix := '${pkgname}-'
+	for entry in entries {
+		if !entry.starts_with(prefix) {
+			continue
+		}
+		entry_ver := entry[prefix.len..]
+		if entry_ver == current_version {
+			continue // keep the current version
+		}
+		full_path := os.join_path(local_dir, entry)
+		if os.is_dir(full_path) {
+			// Remove files first, then the directory.
+			files := os.ls(full_path) or { continue }
+			for f in files {
+				if f != '.' && f != '..' {
+					os.rm(os.join_path(full_path, f)) or {}
+				}
+			}
+			os.rmdir(full_path) or {}
+		}
 	}
 }

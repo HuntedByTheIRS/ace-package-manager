@@ -89,7 +89,13 @@ Clean package cache (keep installed versions).
 Clean all cached packages.
 .TP
 \fB\-\-needed\fR
-Skip reinstalling up-to-date packages.
+Skip reinstalling packages already at the same version.  Also respected
+by \fB\-\-libs\fR and \fB\-\-extreme\-libs\fR to skip library providers that
+are already installed at the matching sync database version.
+.TP
+\fB\-\-parallel\fR=\fIN\fR
+Set the number of concurrent download streams.  Overrides the
+\fBParallelDownloads\fR config value.  Default: 3.
 .TP
 \fB\-\-asdeps\fR
 Install as dependency.
@@ -210,8 +216,10 @@ cache, hooks, GPG keyring, log) into ace's native directories under
 /var/lib/ace/. Idempotent and non-destructive.
 .TP
 \fB\-\-deptree\fR \fIpkg\fR
-Display a recursive dependency tree with version constraints and
-circular dependency detection. Similar to pactree(1).
+Display a recursive dependency tree for an installed package.  Shows
+architecture, install reason (explicit/auto), version constraints,
+satisfaction status, and separate subtrees for required, optional, and
+build-time dependencies.  Similar to pactree(1) and zypper(8).
 .TP
 \fB\-\-history\fR
 Display human-readable transaction history from the log file.
@@ -219,7 +227,8 @@ Colour-coded markers: green [INSTALL], yellow [REMOVE], crimson [UPGRADE].
 .TP
 \fB\-\-all\-optional\fR
 When installing, also install all optional dependencies alongside
-the target package.
+the target package(s).  Also applies during system upgrades (\fB\-Su\fR)
+to pull in optional dependencies for every upgraded package.
 .TP
 \fB\-\-libs\fR
 Check library-level dependencies for all packages being installed and

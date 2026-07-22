@@ -32,7 +32,7 @@ fn test_parse_empty_file() {
 	assert cfg.rootdir == '/'
 	assert cfg.dbpath == '/var/lib/ace/'
 	assert cfg.repos.len == 0
-	assert cfg.parallel_downloads == 7
+	assert cfg.parallel_downloads == 3
 }
 
 fn test_parse_comments_only() {

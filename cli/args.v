@@ -51,6 +51,7 @@ pub mut:
 	noprogressbar bool     // --noprogressbar
 	disable_dl_timeout bool // --disable-download-timeout
 	disable_sandbox    bool // --disable-sandbox
+	parallel_downloads int  // --parallel=N  override config ParallelDownloads
 	deptree      bool  // --deptree       show dependency tree
 	show_history bool  // --history       show transaction history
 	keyring_init     bool   // --keyring-init   initialize GPG keyring
@@ -143,6 +144,7 @@ pub fn print_usage() {
 	println('  --ignoregroup <group> Ignore a package group during upgrade')
 	println('  --color <when>   Color output: auto, never, always')
 	println('  --noprogressbar  Disable progress bars')
+	println('  --parallel=N     Set concurrent download streams (default: 3, overrides config)')
 	println('  --disable-download-timeout  Disable download timeouts')
 	println('  --disable-sandbox           Disable download sandboxing')
 	println('  --deptree        Show recursive dependency tree for a package')
@@ -576,6 +578,14 @@ pub fn parse_args_from(raw []string) CliArgs {
 		}
 		if arg == '--noprogressbar' {
 			args.noprogressbar = true
+			i++
+			continue
+		}
+		if arg.starts_with('--parallel=') {
+			val := arg['--parallel='.len..].int()
+			if val > 0 {
+				args.parallel_downloads = val
+			}
 			i++
 			continue
 		}

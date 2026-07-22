@@ -1024,6 +1024,23 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 			if pkg_names_added[lib_pkg_name] {
 				continue
 			}
+			// --needed: skip if already installed at same version.
+			if args.needed {
+				if old := localdb.pkgcache[lib_pkg_name] {
+					mut found_ver_match := false
+					for sdb in syncdbs {
+						if p := sdb.pkgcache[lib_pkg_name] {
+							if util.vercmp(p.version, old.version) == 0 {
+								found_ver_match = true
+							}
+							break
+						}
+					}
+					if found_ver_match {
+						continue
+					}
+				}
+			}
 			mut found := false
 			for sdb in syncdbs {
 				if p := sdb.pkgcache[lib_pkg_name] {
@@ -1059,6 +1076,23 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		for lib_pkg_name in extreme_libs {
 			if pkg_names_added[lib_pkg_name] {
 				continue
+			}
+			// --needed: skip if already installed at same version.
+			if args.needed {
+				if old := localdb.pkgcache[lib_pkg_name] {
+					mut found_ver_match := false
+					for sdb in syncdbs {
+						if p := sdb.pkgcache[lib_pkg_name] {
+							if util.vercmp(p.version, old.version) == 0 {
+								found_ver_match = true
+							}
+							break
+						}
+					}
+					if found_ver_match {
+						continue
+					}
+				}
 			}
 			mut found := false
 			for sdb in syncdbs {

@@ -129,7 +129,7 @@ pub fn init_from_args(mut args CliArgs) !InitResult {
 		hookedirs:          hookedirs_val
 		architectures:      arch_val
 		siglevel:           int(cfg.siglevel)
-		parallel_downloads: cfg.parallel_downloads
+		parallel_downloads: if args.parallel_downloads > 0 { args.parallel_downloads } else { cfg.parallel_downloads }
 		no_confirm:         noconfirm_val
 		noprogressbar:      args.noprogressbar || cfg.noprogressbar || args.debug > 0
 		color:              if args.color != '' { args.color } else { cfg.color.str() }

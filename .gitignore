@@ -6,6 +6,7 @@ ace
 *.so
 *.dylib
 *.dll
+releases/
 
 # Ignore binary output folders
 bin/
