@@ -874,9 +874,33 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 				pkg_names_added[sync_pkg.name] = true
 				println('  downgrading ${local_name} (${local_pkg.version} -> ${sync_pkg.version})')
 			} else {
-				// Same version or local is newer — skip.
-				// Downgrade without -Suu is not performed; same-version
-				// packages do not need reinstallation.
+				// Same version or local is newer — skip unless --needed
+				// permits reinstallation (matching pacman behavior: --needed
+				// skips up-to-date packages, without it they reinstall).
+				if !args.needed {
+					if pkg_names_added[sync_pkg.name] {
+						continue
+					}
+					pkg_targets << sync_pkg
+					pkg_names_added[sync_pkg.name] = true
+					println('  reinstalling ${local_name} (${local_pkg.version})')
+				}
+			}
+
+			// --all-optional: also pull in optional deps for upgraded pkgs.
+			if args.all_optional {
+				for opt in sync_pkg.optdepends {
+					if pkg_names_added[opt.name] {
+						continue
+					}
+					for opt_sdb in syncdbs {
+						if opt_pkg := opt_sdb.pkgcache[opt.name] {
+							pkg_targets << opt_pkg
+							pkg_names_added[opt.name] = true
+							break
+						}
+					}
+				}
 			}
 		}
 	}
@@ -900,6 +924,17 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 				continue
 			}
 			if p := sdb.pkgcache[t_pkg_name] {
+				// --needed: skip if already installed at the same version.
+				if args.needed {
+					if old := localdb.pkgcache[t_pkg_name] {
+						if util.vercmp(p.version, old.version) == 0 {
+							println('  skipping ${t_pkg_name} (already up to date)')
+							found_pkg = true
+							break
+						}
+					}
+				}
+
 				pkg_targets << p
 				pkg_names_added[t_pkg_name] = true
 				found_pkg = true

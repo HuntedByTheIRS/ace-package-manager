@@ -307,7 +307,7 @@ fn test_write_pkg_full_metadata() {
 	rp := ldb.get_pkg('fullmeta') or { assert false; return }
 	assert rp.base == 'fullmeta-base'
 	assert rp.licenses.len == 2 && rp.groups.len == 2
-	assert rp.optdepends.len == 1 && rp.optdepends[0].to_string() == 'python: for scripts'
+	assert rp.optdepends.len == 1 && rp.optdepends[0].to_string() == 'python'
 	assert rp.makedepends.len == 1 && rp.makedepends[0].to_string() == 'cmake>=3.0'
 	assert rp.checkdepends.len == 1 && rp.checkdepends[0].to_string() == 'valgrind'
 	assert rp.replaces.len == 1 && rp.replaces[0].to_string() == 'old-fullmeta<2.0'

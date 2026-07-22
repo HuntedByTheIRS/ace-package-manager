@@ -372,7 +372,11 @@ fn read_desc_into(mut pkg Package, path string) ! {
 					val := lines[i].trim_space()
 					i++
 					if val.len == 0 { break }
-					if dep := Dependency.from_string(val) { deps << dep }
+					// Strip "name: description" from optdepends entries
+					// (matching db/sync.v fix — from_string doesn't
+					// handle the ':' separator).
+					dep_name := val.split(':')[0].trim_space()
+					if dep := Dependency.from_string(dep_name) { deps << dep }
 				}
 				pkg.optdepends = deps
 			}

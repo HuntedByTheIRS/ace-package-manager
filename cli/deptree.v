@@ -1,4 +1,6 @@
 // --deptree — display a recursive dependency tree for a package.
+// Shows architecture, install reason, description, version constraints,
+// satisfaction status, and optional/build-time dependency subtrees.
 module cli
 
 import db
@@ -26,39 +28,110 @@ pub fn run_deptree(args &CliArgs, handle &util.Handle) ! {
 		return error('package "${pkgname}" is not installed')
 	}
 
-	println(pkg_name_str(p))
+	// Root package header.
+	println(header_str(p))
 	mut visited := map[string]bool{}
-	print_tree(p, &local_db, '', true, mut visited, 0)
+	// Required dependencies.
+	if p.depends.len > 0 {
+		println('  ${dim_str('Required dependencies:')}')
+		print_dep_tree(p.depends, &local_db, '    ', mut visited, 0)
+	}
+	// Optional dependencies.
+	if p.optdepends.len > 0 {
+		println('  ${dim_str('Optional dependencies:')}')
+		print_dep_tree(p.optdepends, &local_db, '    ', mut visited, 0)
+	}
+	// Build-time dependencies.
+	if p.makedepends.len > 0 {
+		println('  ${dim_str('Build dependencies:')}')
+		print_dep_tree(p.makedepends, &local_db, '    ', mut visited, 0)
+	}
 }
 
-fn print_tree(pkg &db.Package, local_db &db.LocalDB, prefix string, is_last bool, mut visited map[string]bool, depth int) {
+// print_dep_tree recursively renders a dependency list with tree connectors.
+fn print_dep_tree(deps []db.Dependency, local_db &db.LocalDB, prefix string, mut visited map[string]bool, depth int) {
 	if depth > 10 {
+		println('${prefix}${dim_str('... (max depth)')}')
 		return
 	}
-	if pkg.name in visited {
-		println('${prefix}${if is_last { '└── ' } else { '├── ' }}${dim_str('${pkg.name} (circular)')}')
-		return
-	}
-	visited[pkg.name] = true
-
-	deps := pkg.depends
 	for i, dep in deps {
 		last := i == deps.len - 1
 		connector := if last { '└── ' } else { '├── ' }
-		child_prefix := prefix + if is_last { '    ' } else { '│   ' }
+		child_prefix := prefix + if last { '    ' } else { '│   ' }
 
-		mut dep_str := format_dep(dep)
+		dep_str := format_dep_verbose(dep)
 		if child := local_db.pkgcache[dep.name] {
-			println('${prefix}${connector}${dep_str}')
-			mut cv := visited.clone()
-			print_tree(child, local_db, child_prefix, last, mut cv, depth + 1)
+			// Check version satisfaction.
+			sat := dep_satisfied_by(child, dep)
+			sat_str := if sat { ok_str(' [satisfied]') } else { warn_str(' [installed ${child.version} does not satisfy]') }
+			println('${prefix}${connector}${dep_str}${sat_str} ${info_str(child)}')
+			if !(dep.name in visited) {
+				visited[dep.name] = true
+				// Recurse into child's required deps only.
+				if child.depends.len > 0 && !sat {
+					print_dep_tree(child.depends, local_db, child_prefix, mut visited, depth + 1)
+				}
+			}
 		} else {
-			println('${prefix}${connector}${dim_str(dep_str + ' (not installed)')}')
+			println('${prefix}${connector}${dep_str} ${dim_str('[not installed]')}')
 		}
 	}
 }
 
-fn format_dep(dep db.Dependency) string {
+// header_str formats the root package header with name, version, arch,
+// install reason, and description.
+fn header_str(pkg &db.Package) string {
+	mut out := '${bold_red_str(pkg.name)} ${ver_str(pkg.version)}'
+	if pkg.arch != '' {
+		out += ' ${arch_str(pkg.arch)}'
+	}
+	reason := match pkg.reason {
+		.explicit { ok_str('[explicit]') }
+		.depend { dim_str('[auto]') }
+		.unknown { '' }
+	}
+	out += ' ${reason}'
+	if pkg.desc != '' {
+		out += '\n  ${dim_str(pkg.desc)}'
+	}
+	return out
+}
+
+// info_str formats architecture and auto/explicit marker for tree children.
+fn info_str(pkg &db.Package) string {
+	mut out := ''
+	if pkg.arch != '' {
+		out += '${arch_str(pkg.arch)} '
+	}
+	match pkg.reason {
+		.explicit { out += ok_str('[explicit]') }
+		.depend { out += dim_str('[auto]') }
+		.unknown {}
+	}
+	return out
+}
+
+// dep_satisfied_by checks whether an installed package satisfies a dependency's
+// version constraint.
+fn dep_satisfied_by(pkg &db.Package, dep db.Dependency) bool {
+	if dep.modifier == .any || dep.version == '' {
+		return true
+	}
+	cmp := util.vercmp(pkg.version, dep.version)
+	return match dep.modifier {
+		.eq { cmp == 0 }
+		.ge { cmp >= 0 }
+		.le { cmp <= 0 }
+		.gt { cmp > 0 }
+		.lt { cmp < 0 }
+		.any { true }
+	}
+}
+
+// format_dep_verbose formats a dependency with name, version constraint,
+// and description (for optdepends).
+fn format_dep_verbose(dep db.Dependency) string {
+	mut out := bold_red_str(dep.name)
 	op := match dep.modifier {
 		.any { '' }
 		.eq { '=' }
@@ -67,16 +140,16 @@ fn format_dep(dep db.Dependency) string {
 		.gt { '>' }
 		.lt { '<' }
 	}
-	if op == '' || dep.version == '' {
-		return red_str(dep.name)
+	if op != '' && dep.version != '' {
+		out += ver_str('${op}${dep.version}')
 	}
-	return '${red_str(dep.name)}${ver_str('${op}${dep.version}')}'
+	return out
 }
 
-fn pkg_name_str(pkg &db.Package) string {
-	return '${red_str(pkg.name)} ${ver_str(pkg.version)}'
-}
-
-fn red_str(s string) string { return '\033[1m\033[38;5;160m${s}\033[0m' }
+// ---- ANSI helpers ----
+fn bold_red_str(s string) string { return '\033[1m\033[38;5;160m${s}\033[0m' }
 fn ver_str(s string) string { return '\033[38;5;160m${s}\033[0m' }
 fn dim_str(s string) string { return '\033[38;5;245m${s}\033[0m' }
+fn arch_str(s string) string { return '\033[38;5;35m${s}\033[0m' }
+fn ok_str(s string) string { return '\033[38;5;76m${s}\033[0m' }
+fn warn_str(s string) string { return '\033[38;5;208m${s}\033[0m' }

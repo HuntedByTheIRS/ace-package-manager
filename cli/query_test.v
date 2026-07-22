@@ -352,7 +352,7 @@ fn test_query_info_dep_pkg() {
 	assert pkg.depends.len == 1
 	assert pkg.depends[0].to_string() == 'hello'
 	assert pkg.optdepends.len == 1
-	assert pkg.optdepends[0].to_string() == 'docs: for documentation'
+	assert pkg.optdepends[0].to_string() == 'docs'
 }
 
 fn test_query_info_not_found() {

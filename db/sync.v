@@ -309,7 +309,13 @@ fn parse_desc(mut pkg &Package, data string) {
 			}
 			'OPTDEPENDS' {
 				for v in values {
-					if dep := Dependency.from_string(v) {
+					// Strip "name: description" format — from_string
+					// does not handle the ':' separator (only version
+					// operators), so "python: for scripting" would
+					// be stored with name="python: for scripting",
+					// breaking --all-optional lookups.
+					dep_name := v.split(':')[0].trim_space()
+					if dep := Dependency.from_string(dep_name) {
 						pkg.optdepends << dep
 					}
 				}
