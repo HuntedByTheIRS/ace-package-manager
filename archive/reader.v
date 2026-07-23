@@ -175,6 +175,26 @@ pub fn load_pkg_metadata(path string) !Package {
 	return pkg
 }
 
+// load_changelog reads the .CHANGELOG entry from a .pkg.tar.* archive and
+// returns its contents as text.  Returns an error if the archive carries
+// no changelog.  Equivalent to `pacman -Qcp <file>`.
+pub fn load_changelog(path string) !string {
+	mut r := va.new_reader()
+	r.open(path)!
+	defer {
+		r.free()
+	}
+	for {
+		entry := r.next_header() or { break }
+		if entry.pathname() == '.CHANGELOG' {
+			data := read_entry_data(r, entry)!
+			return data.bytestr()
+		}
+		r.skip_data() or {}
+	}
+	return error('no changelog available')
+}
+
 // load_pkg_full reads the entire archive: metadata from .PKGINFO, filelist
 // from all non-metadata entries, and flags such as scriptlet (.INSTALL).
 //

@@ -54,6 +54,22 @@ List packages installed as dependencies.
 .TP
 \fB\-Qt\fR
 List unrequired packages (not depended on by others).
+.TP
+\fB\-Qu\fR
+List installed packages with a newer version available in the sync databases.
+.TP
+\fB\-Qn\fR
+List native packages (present in a sync database).
+.TP
+\fB\-Qm\fR
+List foreign packages (not present in any sync database).
+.TP
+\fB\-Qp\fR \fIfile\fR
+Query a package file (.pkg.tar.*) instead of the database. Combine with
+\fB\-i\fR for full metadata, \fB\-l\fR to list contents, or \fB\-c\fR for the changelog.
+.TP
+\fB\-Qc\fR \fIpkg\fR
+Show the package changelog (saved to the local database at install time).
 .RE
 
 .TP

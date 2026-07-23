@@ -265,7 +265,7 @@ fn load_sync_dbs_files(repos []config.Repo, sync_dir string) ![]&db.Database {
 	}
 
 	if errors.len > 0 {
-		eprintln('warning: some databases failed to load: ${errors.join("; ")}')
+		eprintln(warn('some databases failed to load: ${errors.join("; ")}'))
 	}
 
 	return result
@@ -301,7 +301,7 @@ fn files_list_dbs(syncdbs []&db.Database, targets []string, args &CliArgs) ! {
 			}
 
 			if !found {
-				eprintln("error: package '${target}' was not found")
+				eprintln(err_str("package '${target}' was not found"))
 			}
 		}
 	} else {
@@ -368,7 +368,7 @@ fn files_search_dbs(syncdbs []&db.Database, targets []string, args &CliArgs) ! {
 		mut re := regex.RE{}
 		if use_regex {
 			re = regex.regex_opt(targ_str) or {
-				eprintln("error: invalid regular expression '${targ_str}'")
+				eprintln(err_str("invalid regular expression '${targ_str}'"))
 				continue
 			}
 		}
@@ -416,7 +416,7 @@ fn files_search_dbs(syncdbs []&db.Database, targets []string, args &CliArgs) ! {
 		}
 
 		if !target_found {
-			eprintln("error: no package owns '${target}'")
+			eprintln(err_str("no package owns '${target}'"))
 		}
 	}
 
@@ -444,9 +444,9 @@ fn print_match_files(match_files []string, repo_name string, pkg &db.Package, ex
 
 	for fname in match_files {
 		if exact_file {
-			println("${fname} is owned by ${repo_name}/${pkg.name} ${pkg.version}")
+			println('${fname} is owned by ${repo(repo_name)}/${pkg_str(pkg.name)} ${sync_ver(pkg.version)}')
 		} else {
-			print('${repo_name}/${pkg.name} ${pkg.version}')
+			print('${repo(repo_name)}/${pkg_str(pkg.name)} ${sync_ver(pkg.version)}')
 			println('    ${fname}')
 		}
 	}

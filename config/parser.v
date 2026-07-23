@@ -82,6 +82,7 @@ pub mut:
 	disablesandbox         bool
 	disablesandbox_fs      bool
 	disablesandbox_sys     bool
+	download_user          string
 	repos                  []Repo
 }
 
@@ -324,7 +325,7 @@ fn apply_config_option(mut cfg Config, key string, val string) {
 		'DownloadUser' {
 			// DownloadUser sets the user to drop privileges to for downloading.
 			// Example: DownloadUser = nobody
-			// TODO: store download_user on Handle when implemented
+			cfg.download_user = val
 		}
 		else {}
 	}

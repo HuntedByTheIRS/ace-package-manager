@@ -281,7 +281,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 				if val == 'auto' || val == 'never' || val == 'always' {
 					args.color = val
 				} else {
-					eprintln('warning: invalid --color value "${val}", using auto')
+					eprintln(warn('invalid --color value "${val}", using auto'))
 					args.color = 'auto'
 				}
 			}
@@ -388,7 +388,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 				if level_str.len > 0 {
 					val := level_str.int()
 					if level_str.starts_with('-') || (val == 0 && level_str != '0') {
-						eprintln('warning: --debug value "${level_str}" is not valid, using 1')
+						eprintln(warn('--debug value "${level_str}" is not valid, using 1'))
 						args.debug = 1
 					} else {
 						args.debug = val
@@ -445,7 +445,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 					`s` { args.query_search = true }
 					`t` { args.query_unrequired++ }
 					`u` { args.query_upgrades = true }
-					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
+					else { eprintln(warn("unknown sub-flag '${arg[j].ascii_str()}' in ${arg}")) }
 				}
 			}
 			// Set query_op for test backward compat
@@ -477,7 +477,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 					`n` { args.nosave = true }
 					`u` { args.unneeded = true }
 					`d` { args.nodeps++ }
-					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
+					else { eprintln(warn("unknown sub-flag '${arg[j].ascii_str()}' in ${arg}")) }
 				}
 			}
 			i++
@@ -515,7 +515,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 					`l` { args.sync_list = true }
 					`g` { args.sync_group++ }
 					`q` { args.quiet = true }
-					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
+					else { eprintln(warn("unknown sub-flag '${arg[j].ascii_str()}' in ${arg}")) }
 				}
 			}
 			i++
@@ -532,7 +532,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 				match arg[j] {
 					`k` { args.database_check++ }
 					`q` { args.quiet = true }
-					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
+					else { eprintln(warn("unknown sub-flag '${arg[j].ascii_str()}' in ${arg}")) }
 				}
 			}
 			i++
@@ -551,7 +551,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 					`y` { args.files_refresh++ }
 					`x` { args.files_regex = true }
 					`q` { args.quiet = true }
-					else { eprintln("warning: unknown sub-flag '${arg[j].ascii_str()}' in ${arg}") }
+					else { eprintln(warn("unknown sub-flag '${arg[j].ascii_str()}' in ${arg}")) }
 				}
 			}
 			i++
@@ -679,7 +679,7 @@ pub fn parse_args_from(raw []string) CliArgs {
 
 		// Unrecognized flags — warn but don't error (pacman compatibility).
 		if arg.starts_with('-') {
-			eprintln('warning: unknown option ${arg}')
+			eprintln(warn('unknown option ${arg}'))
 			i++
 			continue
 		}

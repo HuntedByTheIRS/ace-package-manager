@@ -184,6 +184,7 @@ pub:
 	release string
 	arch    string
 	sha256sum string // expected SHA256 hash (from sync DB)
+	files   []string // package file list — used for Path hook triggers
 }
 
 // ------------------------------------------------------------
@@ -226,6 +227,42 @@ pub mut:
 	disable_sandbox    bool     // disable all sandboxing
 	disable_sandbox_fs bool     // disable filesystem sandboxing only
 	disable_sandbox_sys bool    // disable syscall sandboxing only
+}
+
+// ------------------------------------------------------------
+// Global color mode — set once from Handle.color at startup so
+// every module (cli, trans, ...) honors --color / config Color
+// without threading the handle through every print helper.
+// ------------------------------------------------------------
+
+__global (
+	color_mode = 'auto'
+)
+
+// set_color_mode records the user's color preference
+// ('auto', 'never', 'always'). Unknown values fall back to 'auto'.
+pub fn set_color_mode(mode string) {
+	color_mode = match mode {
+		'never', 'always' { mode }
+		else { 'auto' }
+	}
+}
+
+// color_enabled reports whether colored output should be produced.
+// An explicit --color never/always wins; in 'auto' mode the NO_COLOR
+// convention (https://no-color.org/) and TERM detection apply.
+pub fn color_enabled() bool {
+	if color_mode == 'always' {
+		return true
+	}
+	if color_mode == 'never' {
+		return false
+	}
+	if os.getenv('NO_COLOR') != '' {
+		return false
+	}
+	term := os.getenv('TERM')
+	return term != '' && term != 'dumb'
 }
 
 // resolved_dbpath returns root + dbpath.

@@ -147,9 +147,9 @@ fn format_dep_verbose(dep db.Dependency) string {
 }
 
 // ---- ANSI helpers ----
-fn bold_red_str(s string) string { return '\033[1m\033[38;5;160m${s}\033[0m' }
-fn ver_str(s string) string { return '\033[38;5;160m${s}\033[0m' }
-fn dim_str(s string) string { return '\033[38;5;245m${s}\033[0m' }
-fn arch_str(s string) string { return '\033[38;5;35m${s}\033[0m' }
-fn ok_str(s string) string { return '\033[38;5;76m${s}\033[0m' }
-fn warn_str(s string) string { return '\033[38;5;208m${s}\033[0m' }
+fn bold_red_str(s string) string { if !use_color() { return s } return '\033[1m\033[38;5;160m${s}\033[0m' }
+fn ver_str(s string) string { if !use_color() { return s } return '\033[38;5;160m${s}\033[0m' }
+fn dim_str(s string) string { if !use_color() { return s } return '\033[38;5;245m${s}\033[0m' }
+fn arch_str(s string) string { if !use_color() { return s } return '\033[38;5;35m${s}\033[0m' }
+fn ok_str(s string) string { if !use_color() { return s } return '\033[38;5;76m${s}\033[0m' }
+fn warn_str(s string) string { if !use_color() { return s } return '\033[38;5;208m${s}\033[0m' }

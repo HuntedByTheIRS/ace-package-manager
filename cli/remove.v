@@ -106,6 +106,7 @@ pub fn run_remove(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 
 	// --- Remove each target ---
 	mut errors := []string{}
+	mut rm_pkgs := []&util.Package{}
 	for target in args.targets {
 		progress_callback(0, 'removing ${target}')
 
@@ -118,12 +119,18 @@ pub fn run_remove(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 			errors << '${target}: ${err.msg()}'
 			continue
 		}
+		// Capture the file list for Path hook triggers (Remove operation).
+		rm_pkgs << &util.Package{
+			name:    p.name
+			version: p.version
+			files:   pkg_file_names(p)
+		}
 
 		progress_callback(100, 'removed ${target}')
 	}
 
 	// Run post-transaction hooks.
-	run_remove_hooks(handle, args.targets)
+	run_remove_hooks(handle, rm_pkgs)
 
 	if errors.len > 0 {
 		return error('failed to remove packages: ' + errors.join('; '))
@@ -169,17 +176,13 @@ fn progress_callback(percent int, message string) {
 	}
 }
 
-fn run_remove_hooks(handle &util.Handle, targets []string) {
+fn run_remove_hooks(handle &util.Handle, rm_pkgs []&util.Package) {
 	if handle.hookedirs.len == 0 {
 		return
 	}
 	mut engine := hooks.new_hook_engine(handle)
-	mut util_pkgs := []&util.Package{}
-	for t in targets {
-		util_pkgs << &util.Package{name: t, version: ''}
-	}
-	engine.set_packages([]&util.Package{}, util_pkgs)
-	engine.run_post(util_pkgs) or {
-		eprintln('warning: post-transaction hook failed: ${err}')
+	engine.set_packages([]&util.Package{}, rm_pkgs)
+	engine.run_post(rm_pkgs) or {
+		eprintln(warn('post-transaction hook failed: ${err}'))
 	}
 }

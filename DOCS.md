@@ -322,9 +322,14 @@ HookDir = /usr/share/libalpm/hooks/
 
 | Field | Values |
 |---|---|
-| `Type` | `Package` |
+| `Type` | `Package`, `Path` |
 | `Operation` | `Install`, `Upgrade`, `Remove` |
-| `Target` | Package name or fnmatch glob (`*` for all) |
+| `Target` | Package name or fnmatch glob (`*` for all). For `Path` triggers: a file path glob, or a directory prefix ending in `/` (matches the directory and everything beneath it) |
+
+`Path` triggers match against the file lists of the packages in the
+transaction — read from the downloaded archives pre-transaction, and from
+the extracted/local file lists post-install and on removal. With
+`NeedsTargets = true`, the matching file paths are fed to the hook's stdin.
 
 ### Action Phases
 
@@ -445,6 +450,18 @@ doas ace -U /var/cache/pacman/pkg/fish-4.8.1-1-x86_64.pkg.tar.zst
 ace -Q | wc -l
 ace -Qi glibc
 ace -Ql firefox
+
+# Query filters (load sync databases)
+ace -Qu               # installed packages with available upgrades
+ace -Qm               # foreign packages (not in any sync repo)
+ace -Qn               # native packages (present in a sync repo)
+
+# Query a package file directly
+ace -Qip /var/cache/ace/pkg/fish-4.8.1-1-x86_64.pkg.tar.zst   # metadata
+ace -Qlp /var/cache/ace/pkg/fish-4.8.1-1-x86_64.pkg.tar.zst   # contents
+
+# Changelogs (saved to the local DB at install time)
+ace -Qc glibc
 
 # Check database consistency
 ace -Dk

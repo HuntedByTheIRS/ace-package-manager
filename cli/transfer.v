@@ -91,7 +91,7 @@ pub fn run_transfer(args &CliArgs, handle &util.Handle) ! {
 
 	println('')
 	if errors.len > 0 {
-		eprintln('warning: some items could not be transferred:')
+		eprintln(warn('some items could not be transferred:'))
 		for e in errors {
 			eprintln('  ${e}')
 		}

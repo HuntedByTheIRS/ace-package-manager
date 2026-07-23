@@ -154,7 +154,7 @@ fn dfs(idx int, pkgs []&db.Package, adj [][]int, mut state []VertexState, mut re
 		return
 	}
 	if state[idx] == .processing {
-		eprintln('warning: dependency cycle detected, breaking at ${pkgs[idx].name}')
+		eprintln(color_warn('dependency cycle detected, breaking at ${pkgs[idx].name}'))
 		return
 	}
 

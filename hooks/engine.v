@@ -6,7 +6,7 @@
 //
 // Hook file format (INI):
 //   [Trigger]
-//   Type = Package           // Package | Path (File/Path deferred)
+//   Type = Package           // Package | Path
 //   Operation = Install      // Install | Upgrade | Remove (multiple allowed)
 //   Target = linux*          // fnmatch glob
 //
@@ -210,6 +210,27 @@ pub fn (mut e HookEngine) run_hooks(when HookWhen) ! {
 			// or when AbortOnFail is not set.
 		}
 	}
+}
+
+// has_path_triggers reports whether any parsed hook carries a Path-type
+// trigger.  Callers can use this to decide whether collecting package
+// file lists (potentially expensive) is necessary at all.
+pub fn (mut e HookEngine) has_path_triggers() bool {
+	all_hooks := if e.cached_hooks.len > 0 {
+		e.cached_hooks
+	} else {
+		parsed := e.collect_hooks() or { return false }
+		e.cached_hooks = parsed
+		parsed
+	}
+	for hook in all_hooks {
+		for t in hook.triggers {
+			if t.typ == .path {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ===========================================================================
@@ -603,11 +624,12 @@ fn is_triggered(hook &Hook, add_pkgs []&util.Package, remove_pkgs []&util.Packag
 	mut triggered := false
 	for i in 0 .. hook.triggers.len {
 		t := hook.triggers[i]
-		if t.typ != .package {
-			// Path triggers deferred — skip for now.
-			continue
+		matched := match t.typ {
+			.package { match_pkg_trigger(hook, t, add_pkgs, remove_pkgs) }
+			.path { match_path_trigger(hook, t, add_pkgs, remove_pkgs) }
+			else { false }
 		}
-		if match_pkg_trigger(hook, t, add_pkgs, remove_pkgs) {
+		if matched {
 			if !hook.needs_targets {
 				return true
 			}
@@ -615,6 +637,82 @@ fn is_triggered(hook &Hook, add_pkgs []&util.Package, remove_pkgs []&util.Packag
 		}
 	}
 	return triggered
+}
+
+// match_path_trigger checks a single Path-type trigger against the file
+// lists of the add and remove package lists.
+//
+// A target ending in '/' matches that directory and everything beneath
+// it; any other target is matched as an fnmatch glob against each file
+// path (paths and targets are compared without a leading slash).
+//
+// If hook.needs_targets is set, matched file paths are accumulated into
+// hook.matches (fed to the hook's stdin at execution).
+//
+// Reference: _alpm_hook_trigger_match_path() (hook.c:299-357)
+fn match_path_trigger(hook &Hook, t Trigger, add_pkgs []&util.Package, remove_pkgs []&util.Package) bool {
+	mut install := []string{}
+	mut remove := []string{}
+
+	// --- Check add packages for Install/Upgrade ---
+	if int(t.op) & (int(HookOp.install) | int(HookOp.upgrade)) != 0 {
+		for pkg in add_pkgs {
+			for f in pkg.files {
+				if match_any_path(t.targets, f) {
+					if hook.needs_targets {
+						install << f
+					} else {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	// --- Check remove packages for Remove ---
+	if int(t.op) & int(HookOp.remove) != 0 {
+		for pkg in remove_pkgs {
+			for f in pkg.files {
+				if match_any_path(t.targets, f) {
+					if hook.needs_targets {
+						remove << f
+					} else {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	// Collect matches if NeedsTargets.
+	if hook.needs_targets {
+		unsafe {
+			hook.matches << install
+			hook.matches << remove
+		}
+		return install.len > 0 || remove.len > 0
+	}
+
+	return false
+}
+
+// match_any_path returns true if `path` matches any of the trigger
+// targets.  Directory targets (trailing '/') use prefix matching; all
+// other targets are fnmatch globs.
+fn match_any_path(patterns []string, path string) bool {
+	clean_path := path.trim_left('/')
+	for raw_pattern in patterns {
+		pattern := raw_pattern.trim_left('/')
+		if pattern.ends_with('/') {
+			dir := pattern[..pattern.len - 1]
+			if clean_path == dir || clean_path.starts_with(pattern) {
+				return true
+			}
+		} else if fnmatch(pattern, clean_path) {
+			return true
+		}
+	}
+	return false
 }
 
 // match_pkg_trigger checks a single Package-type trigger against the

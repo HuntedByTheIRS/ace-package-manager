@@ -135,6 +135,7 @@ pub fn init_from_args(mut args CliArgs) !InitResult {
 		color:              if args.color != '' { args.color } else { cfg.color.str() }
 		disable_dl_timeout: args.disable_dl_timeout || cfg.disabledl_timeout
 		disable_sandbox:    args.disable_sandbox || cfg.disablesandbox
+		download_user:      cfg.download_user
 		debug_level:        args.debug
 		checkspace:         cfg.checkspace
 		noextract:          cfg.noextract.clone()
@@ -142,6 +143,10 @@ pub fn init_from_args(mut args CliArgs) !InitResult {
 		overwrite_files:    []string{}
 		lockfile_path:      lockfile_path_val
 	}
+
+	// Propagate the resolved color preference so all output helpers
+	// (cli, trans, ...) honor --color / config Color.
+	util.set_color_mode(handle.color)
 
 	return InitResult{
 		cfg:    cfg

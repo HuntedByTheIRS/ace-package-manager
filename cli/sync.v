@@ -13,6 +13,7 @@
 // Reference: pacman/src/pacman/sync.c
 module cli
 
+import archive
 import cache
 import config
 import db
@@ -356,7 +357,7 @@ fn load_sync_dbs(repos []config.Repo, sync_dir string) ![]&db.Database {
 	}
 
 	if errors.len > 0 {
-		eprintln('warning: some databases failed to load: ${errors.join("; ")}')
+		eprintln(warn('some databases failed to load: ${errors.join("; ")}'))
 	}
 
 	return result
@@ -459,7 +460,7 @@ fn sync_search_dbs(syncdbs []&db.Database, targets []string, quiet bool) ! {
 				if quiet {
 					println('${sdb.name}/${pkg.name} ${pkg.version}')
 				} else {
-					println('${sdb.name}/${pkg.name} ${pkg.version}')
+					println('${repo(sdb.name)}/${pkg_str(pkg.name)} ${sync_ver(pkg.version)}')
 					if pkg.desc != '' {
 						println('    ${pkg.desc}')
 					}
@@ -497,7 +498,7 @@ fn sync_group_list(syncdbs []&db.Database, level int, targets []string, quiet bo
 				}
 			}
 			if !found {
-				eprintln('warning: group "${target}" was not found')
+				eprintln(warn('group "${target}" was not found'))
 			}
 		}
 	} else {
@@ -558,7 +559,7 @@ fn sync_info_dbs(syncdbs []&db.Database, level int, targets []string, quiet bool
 				}
 			}
 			if !found {
-				eprintln('warning: package "${target}" was not found')
+				eprintln(warn('package "${target}" was not found'))
 			}
 		}
 	} else {
@@ -708,7 +709,7 @@ fn sync_list_dbs(syncdbs []&db.Database, targets []string, dbpath string, quiet 
 				}
 			}
 			if !found {
-				eprintln('warning: repository "${target}" was not found')
+				eprintln(warn('repository "${target}" was not found'))
 			}
 		}
 	} else {
@@ -1131,7 +1132,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	// prepare returns ?[]db.DepMissing — none means success.
 	if miss := trans.prepare(mut t) {
 		for m in miss {
-			eprintln('warning: cannot resolve "${m.target}", skipping')
+			eprintln(warn('cannot resolve "${m.target}", skipping'))
 		}
 	}
 
@@ -1616,33 +1617,34 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 
 // progress_bar_str renders a colored progress bar like "[#####-----]  47%".
 fn progress_bar_str(pct int, width int) string {
-	mut filled := pct
-	if filled < 0 {
-		filled = 0
-	}
-	if filled > 100 {
-		filled = 100
-	}
-	n := filled * width / 100
-	mut bar := '['
-	for i in 0 .. width {
-		if i < n {
-			bar += '#'
-		} else {
-			bar += '-'
-		}
-	}
-	bar += ']'
-	if pct >= 0 {
-		bar += ' ${filled:3d}%'
-	}
-	return bar
+	return progress_bar(pct, width)
 }
 
 fn heading_str(s string) string { return heading(s) }
 fn pkg_str(s string) string { return pkg(s) }
 fn sync_ver(s string) string { return pkg_version(s) }
 fn pkg_head(s string) string { return pkg(s) }
+
+// pkg_file_names extracts plain file paths from a db.Package file list.
+fn pkg_file_names(p &db.Package) []string {
+	mut names := []string{cap: p.files.files.len}
+	for f in p.files.files {
+		names << f.name
+	}
+	return names
+}
+
+// package_cache_path locates a downloaded package archive in the
+// configured cache directories.
+fn package_cache_path(handle &util.Handle, filename string) ?string {
+	for dir in handle.cachedirs {
+		p := os.join_path(dir, filename)
+		if os.exists(p) {
+			return p
+		}
+	}
+	return none
+}
 
 // run_pre_hooks executes pre-transaction hooks before any package
 // installation begins.  Uses the shared hook_engine so cached .hook
@@ -1651,11 +1653,25 @@ fn run_pre_hooks(mut engine hooks.HookEngine, add_pkgs []&db.Package, remove_pkg
 	if engine.handle.hookedirs.len == 0 {
 		return
 	}
+	// Path triggers match against package file lists.  Pre-transaction the
+	// add-packages haven't been extracted yet, so their file lists are read
+	// from the downloaded archives — but only when a Path trigger actually
+	// exists, since that costs a decompression pass per archive.
+	load_files := engine.has_path_triggers()
 	mut util_pkgs := []&util.Package{}
 	for p in add_pkgs {
+		mut files := pkg_file_names(p)
+		if files.len == 0 && load_files && p.filename != '' {
+			if archive_path := package_cache_path(engine.handle, p.filename) {
+				if apkg := archive.load_pkg_full(archive_path) {
+					files = apkg.files.files.map(it.name)
+				}
+			}
+		}
 		util_pkgs << &util.Package{
 			name:    p.name
 			version: p.version
+			files:   files
 		}
 	}
 	mut util_rm_pkgs := []&util.Package{}
@@ -1663,11 +1679,12 @@ fn run_pre_hooks(mut engine hooks.HookEngine, add_pkgs []&db.Package, remove_pkg
 		util_rm_pkgs << &util.Package{
 			name:    p.name
 			version: p.version
+			files:   pkg_file_names(p)
 		}
 	}
 	engine.set_packages(util_pkgs, util_rm_pkgs)
 	engine.run_pre(util_pkgs) or {
-		eprintln('warning: pre-transaction hook failed: ${err}')
+		eprintln(warn('pre-transaction hook failed: ${err}'))
 	}
 }
 
@@ -1681,10 +1698,11 @@ fn run_post_install_hook(mut engine hooks.HookEngine, pkg db.Package) {
 	util_pkgs := [&util.Package{
 		name:    pkg.name
 		version: pkg.version
+		files:   pkg_file_names(&pkg)
 	}]
 	engine.set_packages(util_pkgs, []&util.Package{})
 	engine.run_post(util_pkgs) or {
-		eprintln('warning: post-install hook for ${pkg.name} failed: ${err}')
+		eprintln(warn('post-install hook for ${pkg.name} failed: ${err}'))
 	}
 }
 
@@ -1697,11 +1715,12 @@ fn run_post_hooks(mut engine hooks.HookEngine, add_pkgs []&db.Package, _ []&db.P
 		util_pkgs << &util.Package{
 			name:    p.name
 			version: p.version
+			files:   pkg_file_names(p)
 		}
 	}
 	engine.set_packages(util_pkgs, []&util.Package{})
 	engine.run_post(util_pkgs) or {
-		eprintln('warning: post-transaction hook failed: ${err}')
+		eprintln(warn('post-transaction hook failed: ${err}'))
 	}
 }
 

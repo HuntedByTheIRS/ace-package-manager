@@ -30,16 +30,11 @@ const color_dark_gray = '\033[38;5;240m'
 const color_reset = '\033[0m'
 const bar_width = 35
 
-// use_color returns true if terminal color output is supported.
-// Follows the NO_COLOR convention (https://no-color.org/).
+// use_color returns true if terminal color output is enabled.
+// Honors --color/Color via util.color_enabled (auto mode follows
+// the NO_COLOR convention and TERM detection).
 fn use_color() bool {
-	// NO_COLOR environment variable — if set to any non-empty value, disable
-	// color regardless of terminal capabilities.
-	if os.getenv('NO_COLOR') != '' {
-		return false
-	}
-	term := os.getenv('TERM')
-	return term != '' && term != 'dumb'
+	return util.color_enabled()
 }
 
 // colorize wraps text in ANSI color codes if color output is enabled.

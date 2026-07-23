@@ -46,7 +46,7 @@ doas ./ace --pacman -R fish
 
 | Flag | Operation | Key Flags |
 |---|---|---|
-| `-Q` | Query local DB | `-Qi` info, `-Ql` file list, `-Qs` search, `-Qo` file owner, `-Qk` check |
+| `-Q` | Query local DB | `-Qi` info, `-Ql` file list, `-Qs` search, `-Qo` file owner, `-Qk` check, `-Qu` upgrades, `-Qn`/`-Qm` native/foreign, `-Qp` query package file, `-Qc` changelog |
 | `-S` | Sync / install | `-Sy` refresh, `-Ss` search, `-Su` upgrade, `-Sc` clean cache |
 | `-R` | Remove | `-Rs` recursive, `-Rc` cascade, `-Rn` nosave, `--print` dry-run |
 | `-U` | Upgrade from file | `--asdeps`, `--asexplicit`, `--needed`, `-w` download-only |

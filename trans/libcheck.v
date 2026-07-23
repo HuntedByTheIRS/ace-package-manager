@@ -106,14 +106,14 @@ pub fn (lc &LibCheck) resolve_libs(targets []string, syncdbs []&db.Database) []s
 	for target in targets {
 		// Find the target package in sync DBs.
 		target_pkg := find_pkg_in_syncdbs(target, syncdbs) or {
-			eprintln('warning: libcheck: target ${target} not in sync DBs, skipping')
+			eprintln(color_warn('libcheck: target ${target} not in sync DBs, skipping'))
 			continue
 		}
 
 		// Check each direct dependency of the target.
 		for dep in target_pkg.depends {
 			dep_pkg := find_pkg_in_syncdbs(dep.name, syncdbs) or {
-				eprintln('warning: libcheck: dep ${dep.name} not in sync DBs, skipping')
+				eprintln(color_warn('libcheck: dep ${dep.name} not in sync DBs, skipping'))
 				continue
 			}
 
@@ -312,7 +312,7 @@ pub fn (lc &LibCheck) resolve_libs_reverse(targets []string, syncdbs []&db.Datab
 // Returns: []string of additional package names to install (may be empty).
 pub fn (lc &LibCheck) resolve_libs_ldconfig(targets []string, syncdbs []&db.Database) []string {
 	ldconfig_output := run_ldconfig() or {
-		eprintln('warning: ldconfig failed — ${err}')
+		eprintln(color_warn('ldconfig failed — ${err}'))
 		return []
 	}
 	if ldconfig_output == '' {
@@ -477,7 +477,7 @@ fn (mut lc LibCheck) save_cache() {
 	}
 
 	os.write_file(lc.cache_path, lines.join('\n') + '\n') or {
-		eprintln('warning: failed to write libcheck cache: ${err}')
+		eprintln(color_warn('failed to write libcheck cache: ${err}'))
 	}
 	lc.cache_dirty = false
 }

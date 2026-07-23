@@ -80,8 +80,8 @@ fn format_op(op string) string {
 	}
 }
 
-fn hist_red(s string) string { return '\033[1m\033[38;5;160m${s}\033[0m' }
-fn hist_dim(s string) string { return '\033[38;5;245m${s}\033[0m' }
-fn hist_head(s string) string { return '\033[1m\033[38;5;160m::\033[0m \033[1m${s}\033[0m' }
-fn hist_green(s string) string { return '\033[38;5;76m${s}\033[0m' }
-fn hist_yellow(s string) string { return '\033[1m\033[38;5;220m${s}\033[0m' }
+fn hist_red(s string) string { if !use_color() { return s } return '\033[1m\033[38;5;160m${s}\033[0m' }
+fn hist_dim(s string) string { if !use_color() { return s } return '\033[38;5;245m${s}\033[0m' }
+fn hist_head(s string) string { if !use_color() { return ':: ${s}' } return '\033[1m\033[38;5;160m::\033[0m \033[1m${s}\033[0m' }
+fn hist_green(s string) string { if !use_color() { return s } return '\033[38;5;76m${s}\033[0m' }
+fn hist_yellow(s string) string { if !use_color() { return s } return '\033[1m\033[38;5;220m${s}\033[0m' }

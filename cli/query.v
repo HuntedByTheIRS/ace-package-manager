@@ -3,6 +3,7 @@
 // Reference: pacman/src/pacman/query.c
 module cli
 
+import archive
 import config
 import db
 import os
@@ -62,6 +63,20 @@ pub fn run_query(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 
 	// 5. All other -Q operations on local packages
 
+	// The locality (-Qn/-Qm) and upgrades (-Qu) filters need sync databases.
+	// Load them lazily, only when one of those filters is active.
+	mut syncdbs := []&db.Database{}
+	if args.query_native || args.query_foreign || args.query_upgrades {
+		sync_dir := if args.pacman_mode {
+			os.join_path('/var/lib/ace', 'sync')
+		} else {
+			os.join_path(dbpath, 'sync')
+		}
+		syncdbs = load_sync_dbs(cfg.repos, sync_dir) or {
+			return error('cannot load sync databases: ${err.msg()}')
+		}
+	}
+
 	// Get the list of packages to operate on
 	mut pkgs := []&db.Package{}
 	if args.targets.len == 0 {
@@ -82,7 +97,7 @@ pub fn run_query(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 			} else if pkg2 := find_satisfier(local_db, name) {
 				pkgs << pkg2
 			} else {
-				eprintln('error: package "${name}" was not found')
+				eprintln(err_str('package "${name}" was not found'))
 				// If it's a file the user can read, suggest -Qp
 				if os.exists(name) {
 					eprintln('  "${name}" is a file, you might want to use -Qp.')
@@ -100,7 +115,7 @@ pub fn run_query(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 	mut match_any := false
 	mut ret_code := 0
 	for pkg in pkgs {
-		if !filter_pkg(pkg, args, &local_db) {
+		if !filter_pkg(pkg, args, &local_db, syncdbs) {
 			continue
 		}
 		code := display_pkg(pkg, args, &local_db, handle.root)
@@ -122,7 +137,7 @@ pub fn run_query(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 // Filter — mirrors filter() in query.c
 // =============================================================================
 
-fn filter_pkg(pkg &db.Package, args &CliArgs, local_db &db.LocalDB) bool {
+fn filter_pkg(pkg &db.Package, args &CliArgs, local_db &db.LocalDB, syncdbs []&db.Database) bool {
 	// Explicit filter (-Qe)
 	if args.query_explicit && pkg.reason != .explicit {
 		return false
@@ -137,8 +152,38 @@ fn filter_pkg(pkg &db.Package, args &CliArgs, local_db &db.LocalDB) bool {
 			return false
 		}
 	}
-	// Upgrades filter (-Qu) — not implemented (no sync DBs yet)
-	// Locality filter (-Qn / -Qm) — not implemented (no sync DBs yet)
+	// Locality filter (-Qn native / -Qm foreign): is the package known to
+	// any sync database?
+	if args.query_native || args.query_foreign {
+		mut in_sync := false
+		for sdb in syncdbs {
+			if pkg.name in sdb.pkgcache {
+				in_sync = true
+				break
+			}
+		}
+		if args.query_native && !in_sync {
+			return false
+		}
+		if args.query_foreign && in_sync {
+			return false
+		}
+	}
+	// Upgrades filter (-Qu): a newer version exists in a sync database.
+	if args.query_upgrades {
+		mut has_upgrade := false
+		for sdb in syncdbs {
+			if sp := sdb.pkgcache[pkg.name] {
+				if util.vercmp(sp.version, pkg.version) > 0 {
+					has_upgrade = true
+					break
+				}
+			}
+		}
+		if !has_upgrade {
+			return false
+		}
+	}
 	return true
 }
 
@@ -194,7 +239,7 @@ fn display_pkg(pkg &db.Package, args &CliArgs, local_db &db.LocalDB, root string
 		dump_pkg_files(pkg, args.quiet)
 	}
 	if args.query_changelog {
-		dump_pkg_changelog(pkg)
+		dump_pkg_changelog(pkg, local_db)
 	}
 	if args.query_check > 0 {
 		if args.query_check == 1 {
@@ -376,8 +421,8 @@ fn dump_pkg_full(pkg &db.Package, extra bool, local_db &db.LocalDB) {
 	optional_for := compute_optionalfor(pkg, local_db)
 
 	// Print fields
-	string_display('Name', pkg.name, width)
-	string_display('Version', pkg.version, width)
+	string_display('Name', pkg_str(pkg.name), width)
+	string_display('Version', sync_ver(pkg.version), width)
 	string_display('Description', pkg.desc, width)
 	string_display('Architecture', pkg.arch, width)
 	string_display('URL', pkg.url, width)
@@ -515,11 +560,21 @@ fn dump_pkg_files(pkg &db.Package, quiet bool) {
 }
 
 // =============================================================================
-// -Qc  —  dump_pkg_changelog (stub)
+// -Qc  —  changelog (read from the local database; saved at install time)
 // =============================================================================
 
-fn dump_pkg_changelog(pkg &db.Package) {
-	eprintln('error: no changelog available for "${pkg.name}".')
+fn dump_pkg_changelog(pkg &db.Package, local_db &db.LocalDB) {
+	changelog_path := os.join_path(local_db.dbpath, '${pkg.name}-${pkg.version}',
+		'changelog')
+	if !os.exists(changelog_path) {
+		eprintln(err_str('no changelog available for "${pkg.name}".'))
+		return
+	}
+	content := os.read_file(changelog_path) or {
+		eprintln(err_str('cannot read changelog for "${pkg.name}": ${err.msg()}'))
+		return
+	}
+	print(content)
 }
 
 // =============================================================================
@@ -568,12 +623,12 @@ fn check_pkg_full(pkg &db.Package, root string) int {
 
 fn query_search(local_db &db.LocalDB, pattern string) {
 	re := regex.regex_opt(pattern) or {
-		eprintln('error: invalid regex: ${pattern}')
+		eprintln(err_str('invalid regex: ${pattern}'))
 		return
 	}
 	for _, pkg in local_db.pkgcache {
 		if re.matches_string(pkg.name) || re.matches_string(pkg.desc) {
-			println('local/${pkg.name} ${pkg.version}')
+			println('${repo('local')}/${pkg_str(pkg.name)} ${sync_ver(pkg.version)}')
 			if pkg.desc != '' {
 				println('    ${pkg.desc}')
 			}
@@ -614,8 +669,8 @@ fn query_groups(local_db &db.LocalDB, targets []string, quiet bool) {
 					}
 				}
 			}
-			if !found {
-				eprintln('error: group "${target}" was not found')
+		if !found {
+			eprintln(err_str('group "${target}" was not found'))
 			}
 		}
 	}
@@ -649,7 +704,7 @@ fn query_owner(local_db &db.LocalDB, filepath string, root string) ! {
 	for _, pkg in local_db.pkgcache {
 		for f in pkg.files.files {
 			if f.name == rel_path || f.name == rpath {
-				println('${rpath} is owned by ${pkg.name} ${pkg.version}')
+				println('${rpath} is owned by ${pkg_str(pkg.name)} ${sync_ver(pkg.version)}')
 				return
 			}
 		}
@@ -662,16 +717,86 @@ fn query_owner(local_db &db.LocalDB, filepath string, root string) ! {
 // -Qp  —  query on package file (operate on .pkg.tar.zst, not DB)
 // =============================================================================
 
-fn query_pkg_files(targets []string, _ &CliArgs) ! {
+fn query_pkg_files(targets []string, args &CliArgs) ! {
 	for target in targets {
 		if !os.exists(target) {
-			eprintln('error: could not load package "${target}": file not found')
+			eprintln(err_str('could not load package "${target}": file not found'))
 			continue
 		}
-		// For now, just print the package name from the filename
-		// Full .pkg.tar.zst parsing is deferred to a later phase
-		eprintln('warning: -Qp is not implemented yet — operating on filename only: ${target}')
+		if args.query_changelog {
+			changelog := archive.load_changelog(target) or {
+				eprintln(err_str('no changelog available for "${target}".'))
+				continue
+			}
+			print(changelog)
+			continue
+		}
+		apkg := archive.load_pkg_full(target) or {
+			eprintln(err_str('could not load package "${target}": ${err.msg()}'))
+			continue
+		}
+		if args.query_list {
+			for f in apkg.files.files {
+				println(f.name)
+			}
+		} else if args.query_info > 0 {
+			dump_file_pkg_info(&apkg)
+		} else {
+			println('${pkg_str(apkg.name)} ${sync_ver(apkg.version)}')
+		}
 	}
+}
+
+// dump_file_pkg_info prints -Qip-style metadata for a package loaded from
+// a .pkg.tar.* file (no local DB fields like Install Date / Required By).
+fn dump_file_pkg_info(apkg &archive.Package) {
+	titles := [
+		'Name',
+		'Version',
+		'Description',
+		'Architecture',
+		'URL',
+		'Licenses',
+		'Groups',
+		'Provides',
+		'Depends On',
+		'Optional Deps',
+		'Conflicts With',
+		'Replaces',
+		'Installed Size',
+		'Packager',
+		'Build Date',
+		'Install Script',
+	]
+	width := compute_title_width(titles)
+
+	string_display('Name', pkg_str(apkg.name), width)
+	string_display('Version', sync_ver(apkg.version), width)
+	string_display('Description', apkg.desc, width)
+	string_display('Architecture', apkg.arch, width)
+	string_display('URL', apkg.url, width)
+	list_display('Licenses', apkg.licenses, width)
+	list_display('Groups', apkg.groups, width)
+	list_display('Provides', adeps_to_strings(apkg.provides), width)
+	list_display('Depends On', adeps_to_strings(apkg.depends), width)
+	list_display_linebreak('Optional Deps', adeps_to_strings(apkg.optdepends), width)
+	list_display('Conflicts With', adeps_to_strings(apkg.conflicts), width)
+	list_display('Replaces', adeps_to_strings(apkg.replaces), width)
+	string_display('Installed Size', humanize_size(apkg.isize), width)
+	string_display('Packager', apkg.packager, width)
+	string_display('Build Date', epoch_to_str(apkg.build_date), width)
+	script_str := if apkg.scriptlet { 'Yes' } else { 'No' }
+	string_display('Install Script', script_str, width)
+	println('')
+}
+
+// adeps_to_strings converts archive.Dependencies to display strings.
+fn adeps_to_strings(deps []archive.Dependency) []string {
+	mut s := []string{}
+	for d in deps {
+		s << d.to_string()
+	}
+	return s
 }
 
 // =============================================================================

@@ -86,9 +86,25 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 		entry := r.next_header() or { break }
 		entry_name := entry.pathname()
 
-		// Skip metadata entries: .PKGINFO, .INSTALL, .CHANGELOG,
-		// .BUILDINFO, .MTREE, and anything else starting with '.'
+		// Metadata entries: .PKGINFO, .INSTALL, .BUILDINFO, .MTREE are
+		// skipped.  .CHANGELOG is preserved in the local database so
+		// that `ace -Qc` can display it later (libalpm does the same).
 		if entry_name.starts_with('.') {
+			if entry_name == '.CHANGELOG' {
+				mut data := []u8{}
+				mut cbuf := []u8{len: 8192}
+				for {
+					n := r.read_data(mut cbuf) or { break }
+					if n <= 0 {
+						break
+					}
+					data << cbuf[..n]
+				}
+				pkg_dir := os.join_path(handle.resolved_dbpath(), 'local', '${pkg.name}-${pkg.version}')
+				os.mkdir_all(pkg_dir) or { continue }
+				os.write_file(os.join_path(pkg_dir, 'changelog'), data.bytestr()) or {}
+				continue
+			}
 			r.skip_data() or {}
 			continue
 		}
@@ -177,13 +193,35 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 		// File-count progress display (no percentage since we don't pre-count).
 		extracted++
 		if extracted % 100 == 1 {
-			print('\r  extracting: ${extracted} files...')
+			print('\r  ' + color_progress('extracting: ${extracted} files...'))
 		}
 	}
 
 	if extracted > 0 {
-		println('\r  extracted ${extracted} files')
+		println('\r  ' + color_progress('extracted ${extracted} files'))
 	}
+}
+
+// use_color reports whether terminal color output is enabled.
+// Delegates to util (trans cannot import cli — circular).
+fn use_color() bool {
+	return util.color_enabled()
+}
+
+// color_progress wraps a progress message in the theme's progress orange.
+fn color_progress(s string) string {
+	if use_color() {
+		return '\033[38;5;208m' + s + '\033[0m'
+	}
+	return s
+}
+
+// color_warn formats a warning message (matches cli's warn() style).
+fn color_warn(s string) string {
+	if use_color() {
+		return '\033[1m\033[38;5;220mwarning:\033[0m ${s}'
+	}
+	return 'warning: ${s}'
 }
 
 // compute_upgrade_targets validates package file targets.

@@ -90,20 +90,20 @@ fn check_local_db_files(local_db &db.LocalDB) int {
 		pkg_dir := os.join_path(local_db.dbpath, pkg_dir_name)
 
 		if !os.is_dir(pkg_dir) {
-			eprintln("error: package directory for '${pkgname}' is missing")
+			eprintln(err_str("package directory for '${pkgname}' is missing"))
 			errors++
 			continue
 		}
 
 		desc_path := os.join_path(pkg_dir, 'desc')
 		if !os.exists(desc_path) {
-			eprintln("error: '${pkgname}': description file is missing")
+			eprintln(err_str("'${pkgname}': description file is missing"))
 			errors++
 		}
 
 		files_path := os.join_path(pkg_dir, 'files')
 		if !os.exists(files_path) {
-			eprintln("error: '${pkgname}': file list is missing")
+			eprintln(err_str("'${pkgname}': file list is missing"))
 			errors++
 		}
 	}
@@ -136,7 +136,7 @@ fn check_local_db_deps(local_db &db.LocalDB) int {
 				}
 			}
 			if !satisfied {
-				eprintln("error: missing dependency '${dep.to_string()}' for '${pkg.name}'")
+				eprintln(err_str("missing dependency '${dep.to_string()}' for '${pkg.name}'"))
 				errors++
 			}
 		}
@@ -157,7 +157,7 @@ fn check_local_db_conflicts(local_db &db.LocalDB) int {
 					// Check if the conflicting package provides the conflict target.
 					// In a basic check, just flag any package name match.
 					if other.name == conflict.name {
-						eprintln("error: '${pkg.name}' conflicts with '${other.name}'")
+						eprintln(err_str("'${pkg.name}' conflicts with '${other.name}'"))
 						errors++
 						found = true
 						break
@@ -186,7 +186,7 @@ fn check_local_db_filelist_conflicts(local_db &db.LocalDB) int {
 				continue
 			}
 			if existing := file_owner[f.name] {
-				eprintln("error: file owned by '${existing}' and '${pkg.name}': '${f.name}'")
+				eprintln(err_str("file owned by '${existing}' and '${pkg.name}': '${f.name}'"))
 				errors++
 			} else {
 				file_owner[f.name] = pkg.name

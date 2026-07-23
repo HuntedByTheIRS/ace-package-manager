@@ -90,7 +90,11 @@ pub fn run_upgrade(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 				pre_failures << pf
 				continue
 			}
-			pre_pkgs << &util.Package{name: pkgmeta.name, version: pkgmeta.version}
+			pre_pkgs << &util.Package{
+				name:    pkgmeta.name
+				version: pkgmeta.version
+				files:   pkgmeta.files.files.map(it.name)
+			}
 		}
 		if pre_failures.len > 0 {
 			eprintln(warn('${pre_failures.len} package(s) could not be loaded for pre-transaction hooks'))
@@ -150,7 +154,11 @@ pub fn run_upgrade(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 		// Run per-package post-install hooks.
 		if handle.hookedirs.len > 0 {
 			mut engine := hooks.new_hook_engine(handle)
-			util_pkgs := [&util.Package{name: db_pkg.name, version: db_pkg.version}]
+			util_pkgs := [&util.Package{
+				name:    db_pkg.name
+				version: db_pkg.version
+				files:   pkg_file_names(db_pkg)
+			}]
 			engine.set_packages(util_pkgs, []&util.Package{})
 			engine.run_post(util_pkgs) or {
 				eprintln(warn('post-install hook for ${db_pkg.name} failed: ${err}'))
@@ -162,7 +170,11 @@ pub fn run_upgrade(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 		mut engine := hooks.new_hook_engine(handle)
 		mut util_pkgs := []&util.Package{}
 		for p in installed_pkgs {
-			util_pkgs << &util.Package{name: p.name, version: p.version}
+			util_pkgs << &util.Package{
+				name:    p.name
+				version: p.version
+				files:   pkg_file_names(p)
+			}
 		}
 		engine.set_packages(util_pkgs, []&util.Package{})
 		engine.run_post(util_pkgs) or {
