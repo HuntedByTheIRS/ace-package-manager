@@ -232,8 +232,10 @@ fn test_write_pkg_roundtrip() {
 		depends:      [Dependency.from_string('glibc>=2.35') or { panic('') }]
 		conflicts:    [Dependency.from_string('old-test') or { panic('') }]
 		provides:     [Dependency.from_string('test') or { panic('') }]
-		files:        FileList{ files: [FileInfo{ name: 'usr/' }, FileInfo{ name: 'usr/bin/' },
-			FileInfo{ name: 'usr/bin/test' }] }
+		files:        FileList{
+			files: [FileInfo{ name: 'usr/' }, FileInfo{ name: 'usr/bin/' },
+				FileInfo{ name: 'usr/bin/test' }]
+		}
 		backup:       [BackupFile{ name: 'etc/test.conf', hash: 'abc123' }]
 	}
 	write_pkg(fx.db_path, pkg, infrq_desc | infrq_files) or {
