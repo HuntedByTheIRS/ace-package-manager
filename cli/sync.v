@@ -1567,7 +1567,13 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 			r := <-result_ch {
 				collected++
 				completed++
-				done_map[r.idx] = true
+				// The index is hoisted out of the subscript on purpose: this V
+				// build (0.5.2 b99970b) loses a select branch variable used
+				// directly as an assignment subscript (`done_map[r.idx] = true`
+				// reports `undefined ident: r` plus `non-integer index void`),
+				// while reads like `${disp_names[r.idx]}` are fine.
+				mut done_idx := r.idx
+				done_map[done_idx] = true
 				// Clear the bar area before printing the result line,
 				// otherwise bars "clone" below the result on redraw.
 				if bar_lines > 0 {
@@ -1588,7 +1594,9 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 				redraw_bars()
 			}
 			p := <-prog_ch {
-				prog_map[p.idx] = p.pct
+				// See the note on `done_idx` above.
+				mut prog_idx := p.idx
+				prog_map[prog_idx] = p.pct
 				redraw_bars()
 			}
 		}
