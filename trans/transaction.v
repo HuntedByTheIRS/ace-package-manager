@@ -275,18 +275,14 @@ pub fn prepare(mut t Transaction) ?[]db.DepMissing {
 	// 3. Architecture validation
 	if t.util_handle != unsafe { nil } && t.util_handle.architectures.len > 0 {
 		for pkg in t.add_pkgs {
-			if pkg.arch == '' || pkg.arch == 'any' { continue }
-			mut valid := false
-			for arch in t.util_handle.architectures {
-				if pkg.arch == arch {
-					valid = true
-					break
-				}
+			if arch_is_supported(pkg.arch, t.util_handle.architectures) {
+				continue
 			}
-			if !valid {
-				t.release()
-				return none
-			}
+			// Say why.  release() below empties add_pkgs, so without this
+			// the caller sees an empty package list and reports success.
+			eprintln('error: ${pkg.name}-${pkg.version} has an invalid architecture (${pkg.arch}); configured: ${t.util_handle.architectures.join(', ')}')
+			t.release()
+			return none
 		}
 	}
 
@@ -405,4 +401,43 @@ pub fn (mut t Transaction) release() {
 // re-sorted and enriched with dependencies by prepare().
 pub fn get_add_pkgs(t &Transaction) []&db.Package {
 	return t.add_pkgs
+}
+
+// arch_family strips a psABI level suffix from an architecture name, so
+// 'x86_64_v4' and 'x86_64' share the family 'x86_64'.  Only a trailing
+// '_v<digits>' is treated as a level; 'armv7h' is returned unchanged.
+pub fn arch_family(arch string) string {
+	if idx := arch.index('_v') {
+		level := arch[idx + 2..]
+		if level.len > 0 && level.int() > 0 {
+			return arch[..idx]
+		}
+	}
+	return arch
+}
+
+// arch_is_supported reports whether a package built for pkg_arch may be
+// installed under the configured architecture list.
+//
+// pacman resolves the special value "auto" to the local machine's
+// architecture plus the psABI levels its CPU supports (CachyOS's pacman
+// reports x86_64, x86_64_v2, x86_64_v3, x86_64_v4).  Probing CPUID is not
+// something ace does, so "auto" accepts any psABI level of the machine's
+// own architecture family — x86_64_v4 packages install on an x86_64 machine,
+// aarch64 packages do not.  An explicitly configured architecture still has
+// to match the package exactly.
+pub fn arch_is_supported(pkg_arch string, configured []string) bool {
+	if pkg_arch == '' || pkg_arch == 'any' {
+		return true
+	}
+	machine := os.uname().machine
+	for want in configured {
+		if want == pkg_arch {
+			return true
+		}
+		if want == 'auto' && arch_family(pkg_arch) == arch_family(machine) {
+			return true
+		}
+	}
+	return false
 }

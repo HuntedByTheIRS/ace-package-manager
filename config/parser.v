@@ -108,13 +108,14 @@ pub fn parse_ini(path string) !Config {
 		cfg.architectures = ['auto']
 	}
 
-	// Resolve "auto" architecture.
-	if cfg.architectures.len > 0 && cfg.architectures[0] == 'auto' {
-		detected := os.execute('uname -m')
-		if detected.exit_code == 0 {
-			cfg.architectures[0] = detected.output.trim_space()
-		}
-	}
+	// "auto" is deliberately left symbolic.  $arch substitution resolves it
+	// to the machine's architecture (see substitute_vars), while package
+	// validation reads it as the machine's architecture *family* (see
+	// trans.arch_is_supported), so psABI-leveled packages — x86_64_v4 on an
+	// x86_64 machine, which is what CachyOS ships — stay installable under
+	// Architecture = auto.  Collapsing it to a bare "x86_64" here made
+	// prepare() reject every such package, and because release() empties the
+	// package list, the transaction then reported "there is nothing to do".
 
 	return cfg
 }
