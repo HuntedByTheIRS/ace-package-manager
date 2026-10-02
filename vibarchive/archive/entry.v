@@ -14,12 +14,24 @@ pub fn new_entry() &ArchiveEntry {
 	return &ArchiveEntry{ inner: ptr }
 }
 
+// cstr_opt converts an optional C string to a V string, mapping NULL to ''.
+// libarchive returns NULL for fields that are absent (symlink/hardlink
+// targets, uname/gname, strmode), and cstring_to_vstring() panics on NULL,
+// so every wrapper that reads a possibly-absent field must go through here.
+@[inline]
+fn cstr_opt(ptr &char) string {
+	if unsafe { ptr == nil } {
+		return ''
+	}
+	return unsafe { cstring_to_vstring(ptr) }
+}
+
 // pathname returns the entry's pathname as an owned V string.
 pub fn (e &ArchiveEntry) pathname() string {
 	if unsafe { e.inner == nil } {
 		return ''
 	}
-	return unsafe { cstring_to_vstring(C.archive_entry_pathname(e.inner)) }
+	return cstr_opt(C.archive_entry_pathname(e.inner))
 }
 
 // size returns the entry's size in bytes.
@@ -75,7 +87,7 @@ pub fn (e &ArchiveEntry) uname() string {
 	if unsafe { e.inner == nil } {
 		return ''
 	}
-	return unsafe { cstring_to_vstring(C.archive_entry_uname(e.inner)) }
+	return cstr_opt(C.archive_entry_uname(e.inner))
 }
 
 // gname returns the entry's owner group name.
@@ -83,7 +95,7 @@ pub fn (e &ArchiveEntry) gname() string {
 	if unsafe { e.inner == nil } {
 		return ''
 	}
-	return unsafe { cstring_to_vstring(C.archive_entry_gname(e.inner)) }
+	return cstr_opt(C.archive_entry_gname(e.inner))
 }
 
 // mtime returns the entry's modification time as Unix timestamp.
@@ -112,12 +124,18 @@ pub fn (e &ArchiveEntry) is_symlink() bool {
 	return t == u32(ae_iflnk)
 }
 
+// is_hardlink returns true if the entry is a hard link to another entry of
+// the same archive (its payload is empty; the data lives in the target).
+pub fn (e &ArchiveEntry) is_hardlink() bool {
+	return e.hardlink() != ''
+}
+
 // symlink returns the symlink target path, or empty string if not a symlink.
 pub fn (e &ArchiveEntry) symlink() string {
 	if unsafe { e.inner == nil } {
 		return ''
 	}
-	return unsafe { cstring_to_vstring(C.archive_entry_symlink(e.inner)) }
+	return cstr_opt(C.archive_entry_symlink(e.inner))
 }
 
 // hardlink returns the hardlink target path, or empty string if not a hardlink.
@@ -125,7 +143,7 @@ pub fn (e &ArchiveEntry) hardlink() string {
 	if unsafe { e.inner == nil } {
 		return ''
 	}
-	return unsafe { cstring_to_vstring(C.archive_entry_hardlink(e.inner)) }
+	return cstr_opt(C.archive_entry_hardlink(e.inner))
 }
 
 // strmode returns a string representation of the entry's mode (e.g. "-rwxr-xr-x").
@@ -133,7 +151,7 @@ pub fn (e &ArchiveEntry) strmode() string {
 	if unsafe { e.inner == nil } {
 		return ''
 	}
-	return unsafe { cstring_to_vstring(C.archive_entry_strmode(e.inner)) }
+	return cstr_opt(C.archive_entry_strmode(e.inner))
 }
 
 // free releases the underlying C archive_entry.
