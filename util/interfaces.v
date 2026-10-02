@@ -200,8 +200,13 @@ pub interface HookRunner {
 // ------------------------------------------------------------
 // Handle — shared configuration handle (analogous to
 // alpm_handle_t, but V-native and phase 1–8 compatible).
+//
+// @[heap]: Handle references are stored in other structs (e.g.
+// hooks.HookEngine), so every Handle must be heap-allocated — a pointer to
+// a stack-allocated Handle could not be safely stored.
 // ------------------------------------------------------------
 
+@[heap]
 pub struct Handle {
 pub mut:
 	root               string   // install root (--root)
