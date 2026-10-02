@@ -7,7 +7,7 @@ fn test_roundtrip_tar_gz() {
 	w.set_format_pax_restricted()!
 	w.open_memory(mut buf)!
 	e1 := new_entry()
-	C.archive_entry_set_pathname(e1.inner, 'file1.txt'.str)
+	C.archive_entry_set_pathname(e1.inner, c'file1.txt')
 	C.archive_entry_set_size(e1.inner, 12)
 	C.archive_entry_set_filetype(e1.inner, u32(ae_ifreg))
 	C.archive_entry_set_perm(e1.inner, u32(0o644))
@@ -16,7 +16,7 @@ fn test_roundtrip_tar_gz() {
 	w.finish_entry()!
 	e1.free()
 	e2 := new_entry()
-	C.archive_entry_set_pathname(e2.inner, 'file2.txt'.str)
+	C.archive_entry_set_pathname(e2.inner, c'file2.txt')
 	C.archive_entry_set_size(e2.inner, 6)
 	C.archive_entry_set_filetype(e2.inner, u32(ae_ifreg))
 	C.archive_entry_set_perm(e2.inner, u32(0o644))
@@ -25,7 +25,7 @@ fn test_roundtrip_tar_gz() {
 	w.finish_entry()!
 	e2.free()
 	e3 := new_entry()
-	C.archive_entry_set_pathname(e3.inner, 'subdir'.str)
+	C.archive_entry_set_pathname(e3.inner, c'subdir')
 	C.archive_entry_set_size(e3.inner, 0)
 	C.archive_entry_set_filetype(e3.inner, u32(ae_ifdir))
 	C.archive_entry_set_perm(e3.inner, u32(0o755))
@@ -59,7 +59,7 @@ fn test_roundtrip_zip() {
 	w.set_format_zip()!
 	w.open_memory(mut buf)!
 	e1 := new_entry()
-	C.archive_entry_set_pathname(e1.inner, 'hello.txt'.str)
+	C.archive_entry_set_pathname(e1.inner, c'hello.txt')
 	C.archive_entry_set_size(e1.inner, 5)
 	C.archive_entry_set_filetype(e1.inner, u32(ae_ifreg))
 	C.archive_entry_set_perm(e1.inner, u32(0o644))
@@ -68,7 +68,7 @@ fn test_roundtrip_zip() {
 	w.finish_entry()!
 	e1.free()
 	e2 := new_entry()
-	C.archive_entry_set_pathname(e2.inner, 'world.txt'.str)
+	C.archive_entry_set_pathname(e2.inner, c'world.txt')
 	C.archive_entry_set_size(e2.inner, 5)
 	C.archive_entry_set_filetype(e2.inner, u32(ae_ifreg))
 	C.archive_entry_set_perm(e2.inner, u32(0o644))
@@ -81,10 +81,16 @@ fn test_roundtrip_zip() {
 	mut reader := new_reader()
 	reader.support_format_all()!
 	reader.open_memory(buf)!
-	entry1 := reader.next_header() or { assert false, 'should have entry'; return }
+	entry1 := reader.next_header() or {
+		assert false, 'should have entry'
+		return
+	}
 	assert entry1.pathname() == 'hello.txt'
 	reader.skip_data()!
-	entry2 := reader.next_header() or { assert false, 'should have second entry'; return }
+	entry2 := reader.next_header() or {
+		assert false, 'should have second entry'
+		return
+	}
 	assert entry2.pathname() == 'world.txt'
 	reader.skip_data()!
 	reader.free()
@@ -98,7 +104,7 @@ fn test_roundtrip_large_entry() {
 	w.open_memory(mut buf)!
 	large_data := []u8{len: 1048576, init: u8(0x42)}
 	e := new_entry()
-	C.archive_entry_set_pathname(e.inner, 'large.bin'.str)
+	C.archive_entry_set_pathname(e.inner, c'large.bin')
 	C.archive_entry_set_size(e.inner, i64(1048576))
 	C.archive_entry_set_filetype(e.inner, u32(ae_ifreg))
 	C.archive_entry_set_perm(e.inner, u32(0o644))
@@ -112,7 +118,10 @@ fn test_roundtrip_large_entry() {
 	reader.support_filter_all()!
 	reader.support_format_all()!
 	reader.open_memory(buf)!
-	entry := reader.next_header() or { assert false, 'should have entry'; return }
+	entry := reader.next_header() or {
+		assert false, 'should have entry'
+		return
+	}
 	assert entry.pathname() == 'large.bin'
 	assert entry.size() == 1048576
 	mut read_buf := []u8{len: 1048576}

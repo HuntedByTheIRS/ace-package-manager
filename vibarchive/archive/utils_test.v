@@ -14,7 +14,7 @@ fn test_extract_to_dir() {
 	w.open_file(tar_path)!
 
 	e1 := new_entry()
-	C.archive_entry_set_pathname(e1.inner, 'mydir'.str)
+	C.archive_entry_set_pathname(e1.inner, c'mydir')
 	C.archive_entry_set_size(e1.inner, 0)
 	C.archive_entry_set_filetype(e1.inner, u32(ae_ifdir))
 	C.archive_entry_set_perm(e1.inner, u32(0o755))
@@ -22,7 +22,7 @@ fn test_extract_to_dir() {
 	w.finish_entry()!
 
 	e2 := new_entry()
-	C.archive_entry_set_pathname(e2.inner, 'mydir/hello.txt'.str)
+	C.archive_entry_set_pathname(e2.inner, c'mydir/hello.txt')
 	C.archive_entry_set_size(e2.inner, 12)
 	C.archive_entry_set_filetype(e2.inner, u32(ae_ifreg))
 	C.archive_entry_set_perm(e2.inner, u32(0o644))
@@ -54,7 +54,7 @@ fn test_ls_archive() {
 	w.open_file(tar_path)!
 
 	e1 := new_entry()
-	C.archive_entry_set_pathname(e1.inner, 'dir1'.str)
+	C.archive_entry_set_pathname(e1.inner, c'dir1')
 	C.archive_entry_set_size(e1.inner, 0)
 	C.archive_entry_set_filetype(e1.inner, u32(ae_ifdir))
 	C.archive_entry_set_perm(e1.inner, u32(0o755))
@@ -62,7 +62,7 @@ fn test_ls_archive() {
 	w.finish_entry()!
 
 	e2 := new_entry()
-	C.archive_entry_set_pathname(e2.inner, 'dir1/file.txt'.str)
+	C.archive_entry_set_pathname(e2.inner, c'dir1/file.txt')
 	C.archive_entry_set_size(e2.inner, 4)
 	C.archive_entry_set_filetype(e2.inner, u32(ae_ifreg))
 	C.archive_entry_set_perm(e2.inner, u32(0o644))

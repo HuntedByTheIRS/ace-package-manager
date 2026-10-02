@@ -38,7 +38,7 @@ pub fn compress(data []u8, format Format) ![]u8 {
 	defer {
 		e.free()
 	}
-	C.archive_entry_set_pathname(e.inner, 'data'.str)
+	C.archive_entry_set_pathname(e.inner, c'data')
 	C.archive_entry_set_size(e.inner, i64(data.len))
 	C.archive_entry_set_filetype(e.inner, u32(archive.ae_ifreg))
 	C.archive_entry_set_perm(e.inner, u32(0o644))

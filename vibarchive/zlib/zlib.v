@@ -10,14 +10,19 @@ fn C.archive_entry_set_pathname(voidptr, &char)
 fn C.archive_entry_set_size(voidptr, i64)
 fn C.archive_entry_set_filetype(voidptr, u32)
 fn C.archive_entry_set_perm(voidptr, u32)
+
 @[keep_args_alive]
 fn C.archive_write_open_memory(voidptr, voidptr, u64, &u64) i32
 
 // Mirror struct to extract private .inner from ArchiveWriter (first field at offset 0).
-struct ZlibWriterInner { inner voidptr }
+struct ZlibWriterInner {
+	inner voidptr
+}
 
 // Mirror struct to extract private .inner from ArchiveEntry (first field at offset 0).
-struct ZlibEntryInner { inner voidptr }
+struct ZlibEntryInner {
+	inner voidptr
+}
 
 // check maps a libarchive status code to a V error.
 fn check(inner voidptr, code i32) ! {
@@ -41,7 +46,7 @@ pub fn compress(data []u8) ![]u8 {
 
 	e := archive.new_entry()
 	e_inner := unsafe { (&ZlibEntryInner(voidptr(e))).inner }
-	C.archive_entry_set_pathname(e_inner, 'data'.str)
+	C.archive_entry_set_pathname(e_inner, c'data')
 	C.archive_entry_set_size(e_inner, i64(data.len))
 	C.archive_entry_set_filetype(e_inner, u32(archive.ae_ifreg))
 	C.archive_entry_set_perm(e_inner, u32(0o644))

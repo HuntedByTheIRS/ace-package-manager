@@ -21,7 +21,10 @@ pub fn extract_to_dir(archive_path string, dest_dir string, opts ExtractOpts) ! 
 		} else if entry.is_symlink() {
 			target := entry.symlink()
 			if os.exists(full_path) {
-				if !opts.overwrite { r.skip_data() or {}; continue }
+				if !opts.overwrite {
+					r.skip_data() or {}
+					continue
+				}
 				os.rm(full_path) or {}
 			}
 			os.symlink(target, full_path) or {}
@@ -31,7 +34,8 @@ pub fn extract_to_dir(archive_path string, dest_dir string, opts ExtractOpts) ! 
 				os.mkdir_all(parent)!
 			}
 			if os.exists(full_path) && !opts.overwrite {
-				r.skip_data() or {}; continue
+				r.skip_data() or {}
+				continue
 			}
 			sz := entry.size()
 			if sz == 0 {

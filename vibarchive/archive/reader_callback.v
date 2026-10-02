@@ -17,8 +17,8 @@ pub mut:
 // Implementations receive callbacks as each entry is read from the archive.
 // Set read.stop_early = true in any callback to abort further reading.
 pub interface Reader {
-mut:
 	// dir_block is called when a directory entry is read.
+mut:
 	dir_block(mut read Read, size u64)
 
 	// file_block is called when a file entry is read.
@@ -67,8 +67,8 @@ pub fn read_archive_callback(a &ArchiveReader, mut cb Reader) ! {
 
 		mut read := Read{
 			block_number: block_number
-			path:    entry.pathname()
-			size:    u64(entry.size())
+			path:         entry.pathname()
+			size:         u64(entry.size())
 		}
 
 		if entry.is_dir() {

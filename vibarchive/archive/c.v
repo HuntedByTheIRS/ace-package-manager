@@ -7,16 +7,18 @@ module archive
 
 // Opaque structs
 pub struct C.struct_archive {}
+
 pub struct C.struct_archive_entry {}
+
 pub struct C.wchar_t {}
 
 // Return code constants
-pub const archive_ok     = 0
-pub const archive_eof    = 1
-pub const archive_retry  = -10
-pub const archive_warn   = -20
+pub const archive_ok = 0
+pub const archive_eof = 1
+pub const archive_retry = -10
+pub const archive_warn = -20
 pub const archive_failed = -25
-pub const archive_fatal  = -30
+pub const archive_fatal = -30
 
 // Read lifecycle
 fn C.archive_read_new() &C.struct_archive
@@ -56,6 +58,7 @@ fn C.archive_read_support_filter_rpm(&C.struct_archive) i32
 // Open functions
 @[keep_args_alive]
 fn C.archive_read_open_memory(&C.struct_archive, voidptr, u64) i32
+
 fn C.archive_read_open_filename(&C.struct_archive, &char, u64) i32
 fn C.archive_read_open_fd(&C.struct_archive, i32, u64) i32
 fn C.archive_read_open_FILE(&C.struct_archive, &C.FILE, u64) i32
@@ -67,6 +70,7 @@ fn C.archive_read_next_header2(&C.struct_archive, &C.struct_archive_entry) i32
 // Data reading
 @[keep_args_alive]
 fn C.archive_read_data(&C.struct_archive, voidptr, u64) i64
+
 fn C.archive_read_data_skip(&C.struct_archive) i32
 fn C.archive_read_data_into_fd(&C.struct_archive, i32) i32
 
@@ -81,44 +85,44 @@ fn C.archive_filter_code(&C.struct_archive, i32) i32
 fn C.archive_filter_name(&C.struct_archive, i32) &char
 
 // Filter code constants
-pub const archive_filter_none     = 0
-pub const archive_filter_gzip     = 1
-pub const archive_filter_bzip2    = 2
+pub const archive_filter_none = 0
+pub const archive_filter_gzip = 1
+pub const archive_filter_bzip2 = 2
 pub const archive_filter_compress = 3
-pub const archive_filter_program  = 4
-pub const archive_filter_lzma     = 5
-pub const archive_filter_xz       = 6
-pub const archive_filter_uu       = 7
-pub const archive_filter_rpm      = 8
-pub const archive_filter_lzip     = 9
-pub const archive_filter_lrzip    = 10
-pub const archive_filter_lzop     = 11
-pub const archive_filter_grzip    = 12
-pub const archive_filter_lz4      = 13
-pub const archive_filter_zstd     = 14
+pub const archive_filter_program = 4
+pub const archive_filter_lzma = 5
+pub const archive_filter_xz = 6
+pub const archive_filter_uu = 7
+pub const archive_filter_rpm = 8
+pub const archive_filter_lzip = 9
+pub const archive_filter_lrzip = 10
+pub const archive_filter_lzop = 11
+pub const archive_filter_grzip = 12
+pub const archive_filter_lz4 = 13
+pub const archive_filter_zstd = 14
 
 // Format code constants
-pub const archive_format_base_mask           = i32(0xff0000)
-pub const archive_format_tar                 = i32(0x30000)
-pub const archive_format_tar_ustar           = i32(0x30001)
+pub const archive_format_base_mask = i32(0xff0000)
+pub const archive_format_tar = i32(0x30000)
+pub const archive_format_tar_ustar = i32(0x30001)
 pub const archive_format_tar_pax_interchange = i32(0x30002)
-pub const archive_format_tar_pax_restricted  = i32(0x30003)
-pub const archive_format_tar_gnutar          = i32(0x30004)
-pub const archive_format_zip                 = i32(0x50000)
-pub const archive_format_raw                 = i32(0x90000)
-pub const archive_format_7zip                = i32(0xe0000)
-pub const archive_format_iso9660             = i32(0x40000)
-pub const archive_format_cpio                = i32(0x10000)
-pub const archive_format_empty               = i32(0x60000)
-pub const archive_format_ar                  = i32(0x70000)
-pub const archive_format_xar                 = i32(0xa0000)
-pub const archive_format_lha                 = i32(0xb0000)
-pub const archive_format_cab                 = i32(0xc0000)
-pub const archive_format_rar                 = i32(0xd0000)
-pub const archive_format_warc                = i32(0xf0000)
+pub const archive_format_tar_pax_restricted = i32(0x30003)
+pub const archive_format_tar_gnutar = i32(0x30004)
+pub const archive_format_zip = i32(0x50000)
+pub const archive_format_raw = i32(0x90000)
+pub const archive_format_7zip = i32(0xe0000)
+pub const archive_format_iso9660 = i32(0x40000)
+pub const archive_format_cpio = i32(0x10000)
+pub const archive_format_empty = i32(0x60000)
+pub const archive_format_ar = i32(0x70000)
+pub const archive_format_xar = i32(0xa0000)
+pub const archive_format_lha = i32(0xb0000)
+pub const archive_format_cab = i32(0xc0000)
+pub const archive_format_rar = i32(0xd0000)
+pub const archive_format_warc = i32(0xf0000)
 
 // File type constants
-pub const ae_ifmt  = i32(0o170000)
+pub const ae_ifmt = i32(0o170000)
 pub const ae_ifreg = i32(0o100000)
 pub const ae_iflnk = i32(0o120000)
 pub const ae_ifsock = i32(0o140000)
@@ -136,6 +140,7 @@ fn C.archive_write_finish_entry(&C.struct_archive) i32
 // Write open functions
 @[keep_args_alive]
 fn C.archive_write_open_memory(&C.struct_archive, voidptr, u64, &u64) i32
+
 fn C.archive_write_open_filename(&C.struct_archive, &char) i32
 fn C.archive_write_open_fd(&C.struct_archive, i32) i32
 fn C.archive_write_open_FILE(&C.struct_archive, &C.FILE) i32
@@ -177,6 +182,7 @@ fn C.archive_write_set_format_zip(&C.struct_archive) i32
 
 // Write header/data
 fn C.archive_write_header(&C.struct_archive, &C.struct_archive_entry) i32
+
 @[keep_args_alive]
 fn C.archive_write_data(&C.struct_archive, voidptr, u64) i64
 
@@ -250,21 +256,21 @@ fn C.archive_entry_set_ino64(&C.struct_archive_entry, u64)
 fn C.archive_entry_set_nlink(&C.struct_archive_entry, u32)
 
 // Extract flags
-pub const archive_extract_owner              = i32(0x0001)
-pub const archive_extract_perm               = i32(0x0002)
-pub const archive_extract_time               = i32(0x0004)
-pub const archive_extract_no_overwrite       = i32(0x0008)
-pub const archive_extract_unlink             = i32(0x0010)
-pub const archive_extract_acl                = i32(0x0020)
-pub const archive_extract_fflags             = i32(0x0040)
-pub const archive_extract_xattr              = i32(0x0080)
-pub const archive_extract_secure_symlinks    = i32(0x0100)
-pub const archive_extract_secure_nodotdot    = i32(0x0200)
-pub const archive_extract_no_autodir         = i32(0x0400)
+pub const archive_extract_owner = i32(0x0001)
+pub const archive_extract_perm = i32(0x0002)
+pub const archive_extract_time = i32(0x0004)
+pub const archive_extract_no_overwrite = i32(0x0008)
+pub const archive_extract_unlink = i32(0x0010)
+pub const archive_extract_acl = i32(0x0020)
+pub const archive_extract_fflags = i32(0x0040)
+pub const archive_extract_xattr = i32(0x0080)
+pub const archive_extract_secure_symlinks = i32(0x0100)
+pub const archive_extract_secure_nodotdot = i32(0x0200)
+pub const archive_extract_no_autodir = i32(0x0400)
 pub const archive_extract_no_overwrite_newer = i32(0x0800)
-pub const archive_extract_sparse             = i32(0x1000)
+pub const archive_extract_sparse = i32(0x1000)
 pub const archive_extract_secure_noabsolutepaths = i32(0x10000)
-pub const archive_extract_safe_writes        = i32(0x40000)
+pub const archive_extract_safe_writes = i32(0x40000)
 
 // Extract functions
 fn C.archive_read_extract(&C.struct_archive, &C.struct_archive_entry, i32) i32

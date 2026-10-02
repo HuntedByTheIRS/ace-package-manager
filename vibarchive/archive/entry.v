@@ -11,7 +11,7 @@ pub:
 // new_entry creates a new empty ArchiveEntry.
 pub fn new_entry() &ArchiveEntry {
 	ptr := C.archive_entry_new()
-	return &ArchiveEntry{inner: ptr}
+	return &ArchiveEntry{ inner: ptr }
 }
 
 // pathname returns the entry's pathname as an owned V string.

@@ -1,7 +1,5 @@
 module archive
 
-
-
 // ArchiveReader reads entries from a libarchive archive.
 // Owns the underlying C struct archive pointer and frees it on free().
 // When opened from memory, retains the buffer in mem_buf to prevent GC collection.
@@ -16,7 +14,7 @@ mut:
 // new_reader creates a new ArchiveReader with all format and filter support enabled.
 pub fn new_reader() &ArchiveReader {
 	ptr := C.archive_read_new()
-	return &ArchiveReader{inner: ptr}
+	return &ArchiveReader{ inner: ptr }
 }
 
 // support_format_all enables all available format handlers.
@@ -55,7 +53,7 @@ pub fn (r &ArchiveReader) next_header() !&ArchiveEntry {
 	if code != archive_ok {
 		return error(err_string(r.inner))
 	}
-	return &ArchiveEntry{inner: entry_ptr}
+	return &ArchiveEntry{ inner: entry_ptr }
 }
 
 // read_data reads entry data into the provided buffer.

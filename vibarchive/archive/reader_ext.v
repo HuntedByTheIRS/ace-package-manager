@@ -12,8 +12,6 @@ pub fn (r &ArchiveReader) open(path string) ! {
 	r.open_file(path)!
 }
 
-
-
 // open_bytes opens from a byte buffer.
 pub fn (r &ArchiveReader) open_bytes(data []u8) ! {
 	r.support_filter_all()!
@@ -27,7 +25,7 @@ pub fn (r &ArchiveReader) open_bytes(data []u8) ! {
 
 // extract_to extracts the entire archive to a directory.
 pub fn (r &ArchiveReader) extract_to(dir string) ! {
-	extract_to_dir_inner(r, dir, ExtractOpts{overwrite: true})!
+	extract_to_dir_inner(r, dir, ExtractOpts{ overwrite: true })!
 }
 
 // extract_to_dir extracts to a directory with options.
@@ -42,22 +40,30 @@ fn extract_to_dir_inner(r &ArchiveReader, dir string, opts ExtractOpts) ! {
 		mut rel := entry.pathname().trim_right('/')
 		if opts.strip_components > 0 {
 			parts := rel.split('/')
-			if parts.len <= opts.strip_components { r.skip_data() or {}; continue }
+			if parts.len <= opts.strip_components {
+				r.skip_data() or {}
+				continue
+			}
 			rel = parts[opts.strip_components..].join('/')
 		}
 		full := os.join_path(dir, rel)
 		if !full.starts_with(os.real_path(dir)) && opts.prevent_traversal {
-			r.skip_data() or {}; continue
+			r.skip_data() or {}
+			continue
 		}
 		if entry.is_dir() {
 			os.mkdir_all(full)!
 		} else if entry.is_file() {
 			parent := os.dir(full)
 			if parent != '' && !os.exists(parent) { os.mkdir_all(parent)! }
-			if os.exists(full) && !opts.overwrite { r.skip_data() or {}; continue }
+			if os.exists(full) && !opts.overwrite {
+				r.skip_data() or {}
+				continue
+			}
 			sz := entry.size()
 			if sz == 0 {
-				mut f := os.create(full)!; f.close()
+				mut f := os.create(full)!
+				f.close()
 			} else {
 				mut buf := []u8{len: min2(int(sz), 65536)}
 				mut f := os.create(full)!
@@ -85,7 +91,10 @@ pub fn (r &ArchiveReader) extract_file(name string, dest string) ! {
 	for {
 		entry := r.next_header() or { break }
 		if entry.pathname() == name || entry.pathname().trim_right('/') == name {
-			if entry.is_dir() { os.mkdir_all(dest)!; return }
+			if entry.is_dir() {
+				os.mkdir_all(dest)!
+				return
+			}
 			parent := os.dir(dest)
 			if parent != '' && !os.exists(parent) { os.mkdir_all(parent)! }
 			sz := entry.size()
@@ -191,9 +200,9 @@ pub fn (r &ArchiveReader) compression() string {
 // is_tar returns true if the archive is a tar format.
 pub fn (r &ArchiveReader) is_tar() bool {
 	f := C.archive_format(r.inner)
-	return f == archive_format_tar || f == archive_format_tar_ustar ||
-		f == archive_format_tar_pax_restricted || f == archive_format_tar_gnutar ||
-		f == archive_format_tar_pax_interchange
+	return f == archive_format_tar || f == archive_format_tar_ustar
+		|| f == archive_format_tar_pax_restricted || f == archive_format_tar_gnutar
+		|| f == archive_format_tar_pax_interchange
 }
 
 // is_compressed returns true if any compression filter is active.

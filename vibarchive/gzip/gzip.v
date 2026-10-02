@@ -25,7 +25,7 @@ pub fn compress(data []u8) ![]u8 {
 	check_result(w.inner, C.archive_write_open_memory(w.inner, buf.data, u64(buf.len), &used))!
 
 	e := archive.new_entry()
-	C.archive_entry_set_pathname(e.inner, 'data'.str)
+	C.archive_entry_set_pathname(e.inner, c'data')
 	C.archive_entry_set_size(e.inner, i64(data.len))
 	C.archive_entry_set_filetype(e.inner, u32(archive.ae_ifreg))
 	C.archive_entry_set_perm(e.inner, 0o644)

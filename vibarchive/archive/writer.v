@@ -14,7 +14,7 @@ mut:
 // new_writer creates a new ArchiveWriter.
 pub fn new_writer() &ArchiveWriter {
 	ptr := C.archive_write_new()
-	return &ArchiveWriter{inner: ptr}
+	return &ArchiveWriter{ inner: ptr }
 }
 
 // --- Format setters ---

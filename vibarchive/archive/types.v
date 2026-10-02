@@ -31,9 +31,9 @@ pub enum ArchiveFormat {
 @[params]
 pub struct ExtractOpts {
 pub:
-	overwrite        bool = true
-	strip_components int
-	allow_symlinks   bool = true
+	overwrite         bool = true
+	strip_components  int
+	allow_symlinks    bool = true
 	prevent_traversal bool = true
 }
 
@@ -50,9 +50,9 @@ pub:
 @[params]
 pub struct CreateOpts {
 pub:
-	compression Compression = .gzip
+	compression Compression   = .gzip
 	format      ArchiveFormat = .tar_gz
-	level       int = 6
+	level       int           = 6
 }
 
 // --- Callback type aliases ---
@@ -61,7 +61,6 @@ pub type EntryCallback = fn (entry &ArchiveEntry)
 pub type ProgressCallback = fn (done int, total int)
 pub type ErrorCallback = fn (err string)
 pub type EntryFilter = fn (entry &ArchiveEntry) bool
-
 
 // FileEntry holds information about an entry in an archive.
 pub struct FileEntry {

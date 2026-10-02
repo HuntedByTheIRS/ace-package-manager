@@ -105,4 +105,3 @@ pub fn (w &ArchiveWriter) set_format(f ArchiveFormat) ! {
 		.seven_zip { w.set_format_7zip()! }
 	}
 }
-
