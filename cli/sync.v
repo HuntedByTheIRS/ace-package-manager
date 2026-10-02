@@ -749,6 +749,28 @@ fn sync_list_dbs(syncdbs []&db.Database, targets []string, dbpath string, quiet 
 //  Install / Upgrade (-Su, -Suu, and/or targets)
 // ===========================================================================
 
+// resolve_cachedir returns the directory that holds this transaction's package
+// archives.
+//
+// Download and install must resolve it the same way.  They did not: the
+// download phase joined the configured cachedir against the transaction root
+// while the install phase joined the same cachedir against cfg.rootdir, so an
+// install into --root downloaded packages into <root>/var/cache/ace/pkg and
+// then looked for them in /var/cache/ace/pkg.  Every package was fetched a
+// second time from the host cache, and an unprivileged user died with
+// "failed to open temp file ... Permission denied" instead of installing.
+//
+// Cachedirs are resolved against the transaction root, so a rooted install
+// keeps its cache inside that root; the host cache is reached by passing
+// --cachedir with a path relative to the root, or by installing to /.
+fn resolve_cachedir(handle &util.Handle, root string) string {
+	dirs := handle.resolved_cachedirs()
+	if dirs.len > 0 {
+		return dirs[0]
+	}
+	return os.join_path(root, 'var/cache/ace/pkg')
+}
+
 // sync_install_or_upgrade handles package installation and system upgrade.
 // This is the most complex sync sub-operation, analogous to sync_trans()
 // in pacman's sync.c.
@@ -1233,11 +1255,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	// 11. Download packages.
 	if syncdbs.len > 0 && display_pkgs.len > 0 {
 		// Determine cache directory.
-		cachedir := if cfg.cachedirs.len > 0 {
-			os.join_path(root, cfg.cachedirs[0])
-		} else {
-			os.join_path(root, 'var/cache/ace/pkg')
-		}
+		cachedir := resolve_cachedir(handle, root)
 		if !os.exists(cachedir) {
 			os.mkdir_all(cachedir)!
 		}
@@ -1302,13 +1320,9 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	// 13. Install packages.
 	println(heading_str('Installing packages...'))
 	mut install_errors := []string{}
-	cachedir2 := if cfg.cachedirs.len > 0 {
-		os.join_path(cfg.rootdir, cfg.cachedirs[0])
-	} else {
-		os.join_path(root, 'var/cache/ace/pkg')
-	}
-	if !os.exists(cachedir2) {
-		os.mkdir_all(cachedir2)!
+	cachedir := resolve_cachedir(handle, root)
+	if !os.exists(cachedir) {
+		os.mkdir_all(cachedir)!
 	}
 
 	// 13a. Run pre-transaction hooks before any package installation.
@@ -1323,7 +1337,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 			install_errors << '${p.name}: missing filename, cannot install'
 			continue
 		}
-		pkg_path := os.join_path(cachedir2, p.filename)
+		pkg_path := os.join_path(cachedir, p.filename)
 
 		// If the package file doesn't exist in cache, try a direct download
 		// from the sync database server
@@ -1639,10 +1653,11 @@ fn pkg_file_names(p &db.Package) []string {
 	return names
 }
 
-// package_cache_path locates a downloaded package archive in the
-// configured cache directories.
+/// package_cache_path locates a downloaded package archive in the
+/// transaction's resolved cache directories (root-joined, see
+/// resolve_cachedir).
 fn package_cache_path(handle &util.Handle, filename string) ?string {
-	for dir in handle.cachedirs {
+	for dir in handle.resolved_cachedirs() {
 		p := os.join_path(dir, filename)
 		if os.exists(p) {
 			return p
