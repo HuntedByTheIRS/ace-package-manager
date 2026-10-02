@@ -122,7 +122,7 @@ pub fn run_sync(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 
 	// 10. Install / upgrade.
 	if args.targets.len > 0 || args.sync_upgrade > 0 {
-		return sync_install_or_upgrade(args, syncdbs, cfg, dbpath)
+		return sync_install_or_upgrade(args, syncdbs, cfg, dbpath, handle)
 	}
 
 	// If only -y was given (databases refreshed), success.
@@ -753,28 +753,18 @@ fn sync_list_dbs(syncdbs []&db.Database, targets []string, dbpath string, quiet 
 // This is the most complex sync sub-operation, analogous to sync_trans()
 // in pacman's sync.c.
 fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Config,
-	dbpath string) ! {
+	dbpath string, handle &util.Handle) ! {
 	// 1. Resolve root.
+	//
+	// The handle is built once at startup and already carries every option
+	// parsed from the command line — --noconfirm, --cachedir, --hookdir,
+	// --overwrite, --debug, SigLevel.  Rebuilding a reduced handle here (as
+	// this function used to) silently dropped them: --noconfirm was parsed
+	// but the confirmation prompt below never saw it, so a scripted install
+	// still waited for stdin and cancelled itself.
 	mut root := if args.root != '' { args.root } else { cfg.rootdir }
 	if root == '' {
 		root = '/'
-	}
-
-	// 2. Build the handle.  dbpath may already be root-prefixed (from run_sync);
-	// strip the root prefix so resolved_dbpath() doesn't double-join.
-	mut handle_dbpath := dbpath
-	if root != '' && root != '/' && dbpath.starts_with(root) {
-		handle_dbpath = dbpath[root.len..]
-	}
-	handle := &util.Handle{
-		root:            root
-		dbpath:          handle_dbpath
-		overwrite_files: args.overwrite_files
-		hookedirs:       if args.hookdirs.len > 0 {
-			args.hookdirs.clone()
-		} else {
-			cfg.hookdirs.clone()
-		}
 	}
 
 	// 3. Open local database.
