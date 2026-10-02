@@ -1313,7 +1313,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 
 		if payloads.len > 0 {
 			println(heading_str('Downloading packages...'))
-			failed, stale_dbs := download_parallel_files(payloads, cfg.parallel_downloads)
+			failed, stale_dbs := download_parallel_files(payloads, handle.parallel_downloads)
 			// A package that never arrived cannot be installed, and installing
 			// only the ones that did leaves a root whose local database claims
 			// packages whose files were never unpacked — the state that boots
