@@ -694,16 +694,25 @@ fn query_owner(local_db &db.LocalDB, filepath string, root string) ! {
 	// Resolve the path
 	rpath := fpath
 
-	// Check if path is under root
-	if !rpath.starts_with(root) {
+	// Resolve the path relative to the install root.  The root is normalised
+	// to end in '/' so the remainder keeps a leading slash, which is how
+	// database file lists are compared ("usr/bin/ls" and "/usr/bin/ls").
+	root_prefix := if root == '' {
+		'/'
+	} else if root.ends_with('/') {
+		root
+	} else {
+		root + '/'
+	}
+	if !rpath.starts_with(root_prefix) {
 		return error('No package owns ${fpath}')
 	}
-	rel_path := rpath[root.len..]
+	rel_path := '/' + rpath[root_prefix.len..]
 
 	// Search all packages
 	for _, pkg in local_db.pkgcache {
 		for f in pkg.files.files {
-			if f.name == rel_path || f.name == rpath {
+			if f.name == rel_path || f.name == rel_path[1..] || f.name == rpath {
 				println('${rpath} is owned by ${pkg_str(pkg.name)} ${sync_ver(pkg.version)}')
 				return
 			}

@@ -502,6 +502,51 @@ fn test_query_owner_not_found() {
 	assert found_owner == false
 }
 
+// test_query_owner_with_root covers -Qo when --root is set.  The root used to
+// be stripped without normalising it, so the remainder kept a leading slash
+// ("/usr/bin/ls") while database file lists carry none ("usr/bin/ls") and
+// every lookup failed with "No package owns ...".
+fn test_query_owner_with_root() {
+	tmp_root := os.join_path(os.temp_dir(), 'ace-owner-test-${rand.u32():x}')
+	db_path := os.join_path(tmp_root, 'var', 'lib', 'ace')
+	install_root := os.join_path(tmp_root, 'root')
+	defer {
+		os.rmdir_all(tmp_root) or {}
+	}
+
+	pkg_dir := os.join_path(db_path, 'local', 'hello-1.0-1')
+	os.mkdir_all(pkg_dir) or { panic('mkdir failed: ${err}') }
+	os.write_file(os.join_path(db_path, 'local', 'ALPM_DB_VERSION'), '9\n') or {
+		panic('write failed: ${err}')
+	}
+	write_desc_file(pkg_dir, [
+		'%NAME%',
+		'',
+		'hello',
+		'%VERSION%',
+		'',
+		'1.0-1',
+		'%ARCH%',
+		'',
+		'x86_64',
+	])
+	// Paths are stored without a leading slash, as pacman writes them.
+	write_files_file(pkg_dir, ['usr/bin/hello'])
+
+	mut local_db := db.init(db_path) or { panic('init failed: ${err}') }
+	local_db.populate() or { panic('populate failed: ${err}') }
+
+	query_owner(&local_db, '${install_root}/usr/bin/hello', install_root) or {
+		assert false, 'owner lookup under --root failed: ${err}'
+		return
+	}
+
+	// A path outside the root must not resolve.
+	mut outside_failed := false
+	query_owner(&local_db, '/usr/bin/hello', install_root) or { outside_failed = true }
+	assert outside_failed, 'path outside the root must not resolve'
+}
+
 fn test_query_search() {
 	local_db, cleanup := setup_db()
 	defer { cleanup() }
