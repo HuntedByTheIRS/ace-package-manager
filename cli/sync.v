@@ -1684,8 +1684,6 @@ fn pkg_str(s string) string { return pkg(s) }
 
 fn sync_ver(s string) string { return pkg_version(s) }
 
-fn pkg_head(s string) string { return pkg(s) }
-
 // pkg_file_names extracts plain file paths from a db.Package file list.
 fn pkg_file_names(p &db.Package) []string {
 	mut names := []string{cap: p.files.files.len}
