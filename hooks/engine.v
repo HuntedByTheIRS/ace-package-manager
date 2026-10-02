@@ -207,7 +207,10 @@ pub fn (mut e HookEngine) run_hooks(when HookWhen) ! {
 				return err
 			}
 			// Non-fatal: log and continue for PostTransaction hooks
-			// or when AbortOnFail is not set.
+			// or when AbortOnFail is not set.  Logging matters — a hook
+			// that never ran (missing shell, non-zero exit) used to be
+			// indistinguishable from one that succeeded.
+			eprintln('error: hook "${hook.name}" failed: ${err}')
 		}
 	}
 }
@@ -237,6 +240,31 @@ pub fn (mut e HookEngine) has_path_triggers() bool {
 // Hook file collection
 // ===========================================================================
 
+// hook_dirs_for returns the hook directories to walk for this handle.
+//
+// The directories are resolved against the transaction root.  A package
+// installed into --root ships its own hooks — glibc ships
+// /usr/share/libalpm/hooks/11-glibc-ldconfig.hook — and those are the hooks
+// that must run, in that root.  Walking the host's directories instead ran
+// the host's hooks against the host and left the new root without its
+// /etc/ld.so.cache.
+//
+// The pacman-named directories are added for rooted installs only, because
+// that is where Arch packages place their hooks; on the host ace reads its
+// own directories (a transfer copies the pacman hooks into /etc/ace/hooks).
+pub fn hook_dirs_for(handle &util.Handle) []string {
+	mut dirs := handle.resolved_hookedirs()
+	if handle.root != '' && handle.root != '/' {
+		for compat in ['/usr/share/libalpm/hooks/', '/etc/pacman.d/hooks/'] {
+			d := os.join_path(handle.root, compat)
+			if d !in dirs {
+				dirs << d
+			}
+		}
+	}
+	return dirs
+}
+
 // collect_hooks walks the configured hook directories (in reverse order so
 // earlier directories take priority — matching pacman behaviour) and parses
 // all *.hook files.
@@ -252,8 +280,9 @@ fn (e &HookEngine) collect_hooks() ![]&Hook {
 	// Walk directories in reverse order (last dir has lowest priority, so
 	// the first dir's hooks survive dedup).
 	// Reference: hook.c:536-623 — "for(i = alpm_list_last(handle->hookdirs); ...)"
-	for i := e.handle.hookedirs.len - 1; i >= 0; i-- {
-		dir := e.handle.hookedirs[i]
+	dirs := hook_dirs_for(e.handle)
+	for i := dirs.len - 1; i >= 0; i-- {
+		dir := dirs[i]
 		if dir.len >= dirlen_threshold {
 			if first_err == none {
 				first_err = error('hooks: hook directory path too long: ${dir}')
@@ -997,37 +1026,53 @@ fn (e &HookEngine) execute_hook(hook &Hook) ! {
 // run_command executes a command with optional stdin data.
 //
 // Reference: _alpm_run_chroot() (hook.c:521-525)
+//
+// When the transaction targets a root other than /, the command runs inside
+// that root.  Running the target root's hooks against the host is not merely
+// useless — glibc's ldconfig hook would rewrite the *host's* /etc/ld.so.cache
+// and leave the new root without one, which is how a freshly built root ends
+// up unable to resolve its own shared libraries.
 fn (e &HookEngine) run_command(argv []string, stdin_data string) ! {
 	if argv.len == 0 {
 		return error('hooks: empty command')
 	}
 
 	prog := argv[0]
+	root := e.handle.root
+	chrooted := root != '' && root != '/'
+	mut cmd_str := build_shell_cmd(argv)
 
-	// Build and execute the shell command with stdin piped for hooks
-	// that declare NeedsTargets=true (target_data is newline-separated
-	// package names fed to the hook's standard input).
+	// Hooks that declare NeedsTargets=true get the matched names on stdin
+	// (newline separated).  The file has to be readable from wherever the
+	// command runs, so inside the root when we are about to chroot into it.
 	if stdin_data != '' {
-		// Write stdin_data to a temp file and redirect it as stdin.
-		tmp := os.join_path(os.temp_dir(), 'ace_hook_stdin_${os.getpid()}')
+		tmp := if chrooted {
+			os.join_path(root, 'tmp/ace_hook_stdin_${os.getpid()}')
+		} else {
+			os.join_path(os.temp_dir(), 'ace_hook_stdin_${os.getpid()}')
+		}
+		os.mkdir_all(os.dir(tmp)) or {}
 		os.write_file(tmp, stdin_data) or {
 			return error('hooks: cannot write stdin temp file: ${err}')
 		}
 		defer { os.rm(tmp) or {} }
-		cmd_str := build_shell_cmd(argv)
-		result := os.execute('${cmd_str} < ${os.quoted_path(tmp)} 2>&1')
-		if result.exit_code != 0 {
-			return util.AceError{
-				code:    .system
-				message: 'hooks: "${prog}" failed (exit ${result.exit_code}): ${result.output.trim_space()}'
-			}
-		}
-		return
+		// Inside the chroot the file is addressed relative to the root.
+		visible := if chrooted { '/tmp/' + os.base(tmp) } else { tmp }
+		cmd_str = '${cmd_str} < ${os.quoted_path(visible)}'
 	}
 
-	cmd_str := build_shell_cmd(argv)
-	result := os.execute(cmd_str + ' 2>&1')
+	if chrooted {
+		shell := os.join_path(root, 'bin/sh')
+		if !os.exists(shell) {
+			return util.AceError{
+				code:    .system
+				message: 'hooks: cannot run "${prog}" inside ${root}: ${shell} does not exist yet'
+			}
+		}
+		cmd_str = 'chroot ${os.quoted_path(root)} /bin/sh -c ${os.quoted_path(cmd_str)}'
+	}
 
+	result := os.execute(cmd_str + ' 2>&1')
 	if result.exit_code != 0 {
 		return util.AceError{
 			code:    .system
