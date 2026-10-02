@@ -71,10 +71,11 @@ pub fn dep_satisfies(pkg &db.Package, dep &db.Dependency) bool {
 //
 // On cycle detection the function warns via eprintln and breaks the cycle by
 // treating one back-edge as satisfied (matching pacman's behavior).  The
-// function never aborts or returns an error for cycles.
+// function never aborts or returns an error for cycles, but the result type
+// still mirrors pacman's _alpm_sortbydeps error code.
 //
 // Reference: pacman's _alpm_sortbydeps (deps.c:104-279).
-pub fn sort_by_deps(pkgs []&db.Package, mode SortMode) ?[]&db.Package {
+pub fn sort_by_deps(pkgs []&db.Package, mode SortMode) ![]&db.Package {
 	if pkgs.len == 0 {
 		return []&db.Package{}
 	}
@@ -217,9 +218,10 @@ pub:
 //              are already satisfied by an installed package
 //
 // Returns a ResolveResult on success (even if some deps are unresolved;
-// check .unresolved for failures). Returns none only on internal error.
+// check .unresolved for failures). Declared as a result (!) to mirror the
+// error code of pacman's alpm_resolvedeps().
 pub fn resolve_deps(handle &ResolveHandle, targets []string, syncdbs []&db.Database,
-	localdb &db.Database) ?ResolveResult {
+	localdb &db.Database) !ResolveResult {
 	// Build a hash map from the providing virtual name -> list of packages
 	// that provide it.  This gives O(1) provider lookups instead of scanning
 	// every package for every dependency.
@@ -651,11 +653,12 @@ fn find_causing_pkg(dep &db.Dependency, modified []&db.Package) ?string {
 // of their current satisfiers.
 //
 // Returns a list of missing dependencies.  An empty list means all
-// dependencies are satisfied.
+// dependencies are satisfied.  Declared as a result (!) to mirror the error
+// code of pacman's alpm_checkdeps().
 //
 // Reference: pacman alpm_checkdeps() at deps.c:300-390.
 pub fn check_deps(_handle &util.Handle, local_pkgs []&db.Package, remove []&db.Package,
-	upgrade []&db.Package, reversedeps bool) ?[]db.DepMissing {
+	upgrade []&db.Package, reversedeps bool) ![]db.DepMissing {
 	// Partition local packages into modified (in remove/upgrade) and unmodified.
 	mut dblist := []&db.Package{}
 	mut modified := []&db.Package{}

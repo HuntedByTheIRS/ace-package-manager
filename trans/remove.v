@@ -514,7 +514,7 @@ fn remove_prepare_keep_needed(mut remove_list []&db.Package, local_pkgs []&db.Pa
 // sort_remove_order sorts packages so that dependents are removed before
 // their dependencies (reverse of install order).  Uses the existing
 // sort_by_deps with .remove mode.
-fn sort_remove_order(pkgs []&db.Package) ?[]&db.Package {
+fn sort_remove_order(pkgs []&db.Package) ![]&db.Package {
 	return sort_by_deps(pkgs, SortMode.remove)
 }
 
