@@ -48,30 +48,48 @@ fn pack_db(path string, build fn (mut archive.ArchiveWriter)) {
 fn build_core_db(mut w archive.ArchiveWriter) {
 	add_pkg_dir(mut w, 'pacman-6.0.1-2')
 	add_desc(mut w, 'pacman-6.0.1-2', [
-		'%NAME%', 'pacman',
-		'%VERSION%', '6.0.1-2',
-		'%DESC%', 'A library-based package manager',
-		'%ARCH%', 'x86_64',
-		'%PACKAGER%', 'Fixture Builder <test@ace.local>',
-		'%FILENAME%', 'pacman-6.0.1-2-x86_64.pkg.tar.zst',
-		'%CSIZE%', '654321',
-		'%ISIZE%', '2345678',
+		'%NAME%',
+		'pacman',
+		'%VERSION%',
+		'6.0.1-2',
+		'%DESC%',
+		'A library-based package manager',
+		'%ARCH%',
+		'x86_64',
+		'%PACKAGER%',
+		'Fixture Builder <test@ace.local>',
+		'%FILENAME%',
+		'pacman-6.0.1-2-x86_64.pkg.tar.zst',
+		'%CSIZE%',
+		'654321',
+		'%ISIZE%',
+		'2345678',
 		'',
 	])
 	add_depends(mut w, 'pacman-6.0.1-2', ['glibc>=2.35', 'libarchive>=3.6.0', 'curl', 'gpgme'])
-	add_files(mut w, 'pacman-6.0.1-2', ['usr/', 'usr/bin/', 'usr/bin/pacman', 'usr/share/man/man8/pacman.8'])
+	add_files(mut w, 'pacman-6.0.1-2', ['usr/', 'usr/bin/', 'usr/bin/pacman',
+		'usr/share/man/man8/pacman.8'])
 
 	add_pkg_dir(mut w, 'glibc-2.35-1')
 	add_desc(mut w, 'glibc-2.35-1', [
-		'%NAME%', 'glibc',
-		'%VERSION%', '2.35-1',
-		'%DESC%', 'GNU C Library',
-		'%ARCH%', 'x86_64',
-		'%PACKAGER%', 'Fixture Builder <test@ace.local>',
-		'%FILENAME%', 'glibc-2.35-1-x86_64.pkg.tar.zst',
-		'%CSIZE%', '12345678',
-		'%ISIZE%', '98765432',
-		'%LICENSE%', 'LGPL',
+		'%NAME%',
+		'glibc',
+		'%VERSION%',
+		'2.35-1',
+		'%DESC%',
+		'GNU C Library',
+		'%ARCH%',
+		'x86_64',
+		'%PACKAGER%',
+		'Fixture Builder <test@ace.local>',
+		'%FILENAME%',
+		'glibc-2.35-1-x86_64.pkg.tar.zst',
+		'%CSIZE%',
+		'12345678',
+		'%ISIZE%',
+		'98765432',
+		'%LICENSE%',
+		'LGPL',
 		'',
 	])
 	add_depends(mut w, 'glibc-2.35-1', ['linux-api-headers>=5.10', 'tzdata'])
@@ -79,11 +97,16 @@ fn build_core_db(mut w archive.ArchiveWriter) {
 
 	add_pkg_dir(mut w, 'linux-6.1-1')
 	add_desc(mut w, 'linux-6.1-1', [
-		'%DESC%', 'Linux kernel',
-		'%ARCH%', 'x86_64',
-		'%FILENAME%', 'linux-6.1-1-x86_64.pkg.tar.zst',
-		'%CSIZE%', '99999999',
-		'%ISIZE%', '555555555',
+		'%DESC%',
+		'Linux kernel',
+		'%ARCH%',
+		'x86_64',
+		'%FILENAME%',
+		'linux-6.1-1-x86_64.pkg.tar.zst',
+		'%CSIZE%',
+		'99999999',
+		'%ISIZE%',
+		'555555555',
 		'',
 	])
 	add_depends(mut w, 'linux-6.1-1', ['glibc>=2.35'])
@@ -95,27 +118,33 @@ fn build_empty_db(mut w archive.ArchiveWriter) {
 
 fn build_circular_db(mut w archive.ArchiveWriter) {
 	add_pkg_dir(mut w, 'pkg-a-1.0-1')
-	add_desc(mut w, 'pkg-a-1.0-1', ['%NAME%', 'pkg-a', '%VERSION%', '1.0-1', '%DESC%', 'Circular dep A', '%ARCH%', 'x86_64', ''])
+	add_desc(mut w, 'pkg-a-1.0-1', ['%NAME%', 'pkg-a', '%VERSION%', '1.0-1', '%DESC%', 'Circular dep A',
+		'%ARCH%', 'x86_64', ''])
 	add_depends(mut w, 'pkg-a-1.0-1', ['pkg-b'])
 
 	add_pkg_dir(mut w, 'pkg-b-1.0-1')
-	add_desc(mut w, 'pkg-b-1.0-1', ['%NAME%', 'pkg-b', '%VERSION%', '1.0-1', '%DESC%', 'Circular dep B', '%ARCH%', 'x86_64', ''])
+	add_desc(mut w, 'pkg-b-1.0-1', ['%NAME%', 'pkg-b', '%VERSION%', '1.0-1', '%DESC%', 'Circular dep B',
+		'%ARCH%', 'x86_64', ''])
 	add_depends(mut w, 'pkg-b-1.0-1', ['pkg-c'])
 
 	add_pkg_dir(mut w, 'pkg-c-1.0-1')
-	add_desc(mut w, 'pkg-c-1.0-1', ['%NAME%', 'pkg-c', '%VERSION%', '1.0-1', '%DESC%', 'Circular dep C', '%ARCH%', 'x86_64', ''])
+	add_desc(mut w, 'pkg-c-1.0-1', ['%NAME%', 'pkg-c', '%VERSION%', '1.0-1', '%DESC%', 'Circular dep C',
+		'%ARCH%', 'x86_64', ''])
 	add_depends(mut w, 'pkg-c-1.0-1', ['pkg-a'])
 }
 
 fn build_epoch_db(mut w archive.ArchiveWriter) {
 	add_pkg_dir(mut w, 'pkg-normal-1.0-1')
-	add_desc(mut w, 'pkg-normal-1.0-1', ['%NAME%', 'pkg-normal', '%VERSION%', '1.0-1', '%DESC%', 'No epoch', '%ARCH%', 'x86_64', ''])
+	add_desc(mut w, 'pkg-normal-1.0-1', ['%NAME%', 'pkg-normal', '%VERSION%', '1.0-1', '%DESC%',
+		'No epoch', '%ARCH%', 'x86_64', ''])
 
 	add_pkg_dir(mut w, 'pkg-epoch-2:1.0-1')
-	add_desc(mut w, 'pkg-epoch-2:1.0-1', ['%NAME%', 'pkg-epoch', '%VERSION%', '2:1.0-1', '%DESC%', 'With epoch', '%ARCH%', 'x86_64', ''])
+	add_desc(mut w, 'pkg-epoch-2:1.0-1', ['%NAME%', 'pkg-epoch', '%VERSION%', '2:1.0-1', '%DESC%',
+		'With epoch', '%ARCH%', 'x86_64', ''])
 
 	add_pkg_dir(mut w, 'pkg-epoch-zero-0:1.0-1')
-	add_desc(mut w, 'pkg-epoch-zero-0:1.0-1', ['%NAME%', 'pkg-epoch-zero', '%VERSION%', '0:1.0-1', '%DESC%', 'Epoch zero', '%ARCH%', 'x86_64', ''])
+	add_desc(mut w, 'pkg-epoch-zero-0:1.0-1', ['%NAME%', 'pkg-epoch-zero', '%VERSION%', '0:1.0-1',
+		'%DESC%', 'Epoch zero', '%ARCH%', 'x86_64', ''])
 }
 
 fn build_large_db(mut w archive.ArchiveWriter) {
@@ -125,7 +154,8 @@ fn build_large_db(mut w archive.ArchiveWriter) {
 		ver := '${idx}.0-1'
 		dir := '${name}-${ver}'
 		add_pkg_dir(mut w, dir)
-		add_desc(mut w, dir, ['%NAME%', name, '%VERSION%', ver, '%DESC%', '${name} fixture', '%ARCH%', 'x86_64', ''])
+		add_desc(mut w, dir, ['%NAME%', name, '%VERSION%', ver, '%DESC%', '${name} fixture', '%ARCH%',
+			'x86_64', ''])
 	}
 	libs := ['pam', 'systemd', 'dbus', 'openssl', 'zlib', 'zstd', 'libarchive', 'curl']
 	for name in libs {
@@ -133,7 +163,8 @@ fn build_large_db(mut w archive.ArchiveWriter) {
 		ver := '${idx}.0-1'
 		dir := '${name}-${ver}'
 		add_pkg_dir(mut w, dir)
-		add_desc(mut w, dir, ['%NAME%', name, '%VERSION%', ver, '%DESC%', '${name} fixture', '%ARCH%', 'x86_64', ''])
+		add_desc(mut w, dir, ['%NAME%', name, '%VERSION%', ver, '%DESC%', '${name} fixture', '%ARCH%',
+			'x86_64', ''])
 		add_depends(mut w, dir, ['glibc>=2.35'])
 	}
 	apps := ['pacman', 'python', 'perl', 'git', 'vim', 'nginx', 'sqlite']
@@ -142,7 +173,8 @@ fn build_large_db(mut w archive.ArchiveWriter) {
 		ver := '${idx}.0-1'
 		dir := '${name}-${ver}'
 		add_pkg_dir(mut w, dir)
-		add_desc(mut w, dir, ['%NAME%', name, '%VERSION%', ver, '%DESC%', '${name} fixture', '%ARCH%', 'x86_64', ''])
+		add_desc(mut w, dir, ['%NAME%', name, '%VERSION%', ver, '%DESC%', '${name} fixture', '%ARCH%',
+			'x86_64', ''])
 		add_depends(mut w, dir, ['glibc>=2.35', 'zlib'])
 	}
 }

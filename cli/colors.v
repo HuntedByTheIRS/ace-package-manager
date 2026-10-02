@@ -11,24 +11,24 @@ module cli
 
 const esc = '\033'
 
-pub const reset  = '${esc}[0m'
-pub const bold   = '${esc}[1m'
-pub const dim    = '${esc}[2m'
+pub const reset = '${esc}[0m'
+pub const bold = '${esc}[1m'
+pub const dim = '${esc}[2m'
 
 // 256-color palette — crimson / deep red family + complementary accents
-pub const red        = '${esc}[38;5;196m'  // bright red
-pub const crimson    = '${esc}[38;5;160m'  // deep crimson (#d70000)
-pub const dark_red   = '${esc}[38;5;124m'  // dark red (#af0000)
-pub const maroon     = '${esc}[38;5;88m'   // deep maroon
-pub const orange     = '${esc}[38;5;208m'  // warm orange (#ff8700)
-pub const dark_green = '${esc}[38;5;28m'   // deep forest green (#008700)
-pub const soft_green = '${esc}[38;5;35m'   // soft green
-pub const light_pink = '${esc}[38;5;211m'  // soft pink (#ff87af)
-pub const white      = '${esc}[38;5;255m'  // near-white
-pub const gray       = '${esc}[38;5;245m'  // medium gray
-pub const dark_gray  = '${esc}[38;5;240m'  // dark gray
-pub const green      = '${esc}[38;5;76m'   // success green
-pub const yellow     = '${esc}[38;5;220m'  // warning yellow
+pub const red = '${esc}[38;5;196m' // bright red
+pub const crimson = '${esc}[38;5;160m' // deep crimson (#d70000)
+pub const dark_red = '${esc}[38;5;124m' // dark red (#af0000)
+pub const maroon = '${esc}[38;5;88m' // deep maroon
+pub const orange = '${esc}[38;5;208m' // warm orange (#ff8700)
+pub const dark_green = '${esc}[38;5;28m' // deep forest green (#008700)
+pub const soft_green = '${esc}[38;5;35m' // soft green
+pub const light_pink = '${esc}[38;5;211m' // soft pink (#ff87af)
+pub const white = '${esc}[38;5;255m' // near-white
+pub const gray = '${esc}[38;5;245m' // medium gray
+pub const dark_gray = '${esc}[38;5;240m' // dark gray
+pub const green = '${esc}[38;5;76m' // success green
+pub const yellow = '${esc}[38;5;220m' // warning yellow
 
 // --- Raw ANSI codes for bright backgrounds (used sparingly) ---
 
@@ -183,4 +183,3 @@ pub fn opt_dep(name string, desc string) string {
 fn err_str(s string) string {
 	return err(s)
 }
-

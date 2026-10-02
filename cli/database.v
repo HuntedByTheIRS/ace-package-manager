@@ -204,9 +204,9 @@ fn check_local_db_filelist_conflicts(local_db &db.LocalDB) int {
 fn change_install_reason(args &CliArgs, local_db &db.LocalDB, asdeps bool, _ bool) ! {
 	reason := if asdeps { db.PackageReason.depend } else { db.PackageReason.explicit }
 	reason_label := if asdeps {
-		"installed as dependency"
+		'installed as dependency'
 	} else {
-		"explicitly installed"
+		'explicitly installed'
 	}
 
 	mut errors := []string{}

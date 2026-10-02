@@ -27,8 +27,7 @@ fn test_dependency_from_string_all_operators() {
 		// --- less ---
 		FromStringCase{'glibc<2.35', 'glibc', '2.35', .lt, true},
 		// --- name with hyphens ---
-		FromStringCase{'gtk-update-icon-cache>=3.24', 'gtk-update-icon-cache',
-			'3.24', .ge, true},
+		FromStringCase{'gtk-update-icon-cache>=3.24', 'gtk-update-icon-cache', '3.24', .ge, true},
 		// --- version with epoch ---
 		FromStringCase{'glibc>=2:2.35', 'glibc', '2:2.35', .ge, true},
 		// --- version with dots ---

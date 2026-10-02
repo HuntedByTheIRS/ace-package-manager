@@ -15,7 +15,10 @@ fn test_log_to_file_contains_level_and_message() {
 	l.log(.error_val, 'test error message')
 
 	// Read back and verify
-	content := os.read_file(tmp) or { assert false, 'read failed: ${err}'; return }
+	content := os.read_file(tmp) or {
+		assert false, 'read failed: ${err}'
+		return
+	}
 	assert content.contains('[ERROR]')
 	assert content.contains('test error message')
 }
@@ -28,7 +31,10 @@ fn test_log_warning_to_file() {
 	l.init(tmp, .warning) or { assert false, 'init failed: ${err}' }
 	l.log(.warning, 'warning message')
 
-	content := os.read_file(tmp) or { assert false, 'read failed: ${err}'; return }
+	content := os.read_file(tmp) or {
+		assert false, 'read failed: ${err}'
+		return
+	}
 	assert content.contains('[WARNING]')
 	assert content.contains('warning message')
 }
@@ -41,7 +47,10 @@ fn test_log_to_file_has_timestamp() {
 	l.init(tmp, .error_val) or { assert false, 'init failed: ${err}' }
 	l.log(.error_val, 'ts check')
 
-	content := os.read_file(tmp) or { assert false, 'read failed: ${err}'; return }
+	content := os.read_file(tmp) or {
+		assert false, 'read failed: ${err}'
+		return
+	}
 	// Timestamp format includes comma-separated date components per V 0.5.2
 	assert content.len > 20
 	// Line starts with one or two `[` (outer wrapper + format-produced brackets)
@@ -56,7 +65,10 @@ fn test_logf_formatted() {
 	l.init(tmp, .warning) or { assert false, 'init failed: ${err}' }
 	l.logf(.warning, 'pkg failed:', 'network error', 'code 7')
 
-	content := os.read_file(tmp) or { assert false, 'read failed: ${err}'; return }
+	content := os.read_file(tmp) or {
+		assert false, 'read failed: ${err}'
+		return
+	}
 	assert content.contains('pkg failed: network error code 7')
 }
 
@@ -69,10 +81,13 @@ fn test_log_level_filtering_blocks_debug_when_warning() {
 	l.init(tmp, .warning) or { assert false, 'init failed: ${err}' }
 
 	l.log(.warning, 'this is a warning') // should appear
-	l.log(.debug, 'this is debug')        // should NOT appear (bit not in mask)
+	l.log(.debug, 'this is debug') // should NOT appear (bit not in mask)
 	l.log(.error_val, 'this is an error') // should always appear (errors pass through)
 
-	content := os.read_file(tmp) or { assert false, 'read failed: ${err}'; return }
+	content := os.read_file(tmp) or {
+		assert false, 'read failed: ${err}'
+		return
+	}
 	assert content.contains('[WARNING]')
 	assert content.contains('[ERROR]')
 	// Debug message should be filtered out

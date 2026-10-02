@@ -32,13 +32,13 @@ pub:
 	filename  string // display / log name
 	dest_path string // final local path for the completed file
 pub mut:
-	temp_path      string // optional partial-download path (default: dest_path + '.part')
-	max_size       u64    // size limit in bytes (0 = unlimited)
-	force          bool   // download even if dest_path already exists
-	allow_resume   bool   // allow resuming partial downloads via Range header
-	errors_ok      bool   // if true, download failure is non-fatal for this file
-	sig_download   bool   // auto-download accompanion .sig file (url + '.sig')
-	sig_optional   bool   // .sig file download is optional (non-fatal failure)
+	temp_path    string // optional partial-download path (default: dest_path + '.part')
+	max_size     u64    // size limit in bytes (0 = unlimited)
+	force        bool   // download even if dest_path already exists
+	allow_resume bool   // allow resuming partial downloads via Range header
+	errors_ok    bool   // if true, download failure is non-fatal for this file
+	sig_download bool   // auto-download accompanion .sig file (url + '.sig')
+	sig_optional bool   // .sig file download is optional (non-fatal failure)
 }
 
 // ===========================================================================
@@ -67,7 +67,7 @@ pub fn download_parallel(handle &util.Handle, payloads []DownloadPayload,
 	}
 
 	// --- set up channels ----------------------------------------------------
-	sem := chan int{cap: n}       // semaphore: limits concurrent workers
+	sem := chan int{cap: n} // semaphore: limits concurrent workers
 	result_ch := chan DownloadResult{
 		cap: payloads.len
 	} // buffered for all results

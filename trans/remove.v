@@ -26,13 +26,13 @@ import util
 @[flag]
 pub enum RemoveFlags {
 	none
-	cascade    // also remove packages depending on this one
-	recurse    // remove unneeded dependencies
-	recurseall // like recurse, also consider optdepends
-	unneeded   // skip removal if the package is needed by another
-	nosave     // do not create .pacsave backups
+	cascade     // also remove packages depending on this one
+	recurse     // remove unneeded dependencies
+	recurseall  // like recurse, also consider optdepends
+	unneeded    // skip removal if the package is needed by another
+	nosave      // do not create .pacsave backups
 	noscriptlet // do not execute install scriptlets
-	dbonly     // only remove from database, keep files on disk
+	dbonly      // only remove from database, keep files on disk
 }
 
 // ---------------------------------------------------------------------------
@@ -121,12 +121,12 @@ fn shift_pacsave(filepath string) {
 			if entry.starts_with(prefix) {
 				suffix := entry[prefix.len..]
 				// suffix is either "" (plain .pacsave) or ".N" (numbered).
-                if suffix.len > 1 && suffix[0] == `.` {
-                    n := u64(suffix[1..].int())
-                    if n > max_n {
-                        max_n = n
-                    }
-                }
+				if suffix.len > 1 && suffix[0] == `.` {
+					n := u64(suffix[1..].int())
+					if n > max_n {
+						max_n = n
+					}
+				}
 			}
 		}
 	}
@@ -240,7 +240,7 @@ fn unlink_file(root string, filepath string, backup_hash string, nosave bool, no
 //
 // Reference: pacman _alpm_remove_package_files (remove.c:611-672).
 fn remove_package_files(root string, pkg &db.Package, flags RemoveFlags,
-    noupgrade []string, skip_remove []string, _localdb &db.Database) int {
+	noupgrade []string, skip_remove []string, _localdb &db.Database) int {
 	filelist := pkg.files.files
 	mut err_count := 0
 	nosave := flags.has(.nosave)

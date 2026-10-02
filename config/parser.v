@@ -10,12 +10,12 @@ import os
 // Multiple tokens like "Required DatabaseOptional TrustAll" are OR'd together.
 // Values are explicit powers of 2 for safe bitwise combination via int() conversions.
 pub enum SigLevel {
-	never = 0
-	optional = 1
-	required = 2
-	trusted_only = 4
-	marginal_ok = 8
-	unknown_ok = 16
+	never             = 0
+	optional          = 1
+	required          = 2
+	trusted_only      = 4
+	marginal_ok       = 8
+	unknown_ok        = 16
 	database_optional = 32
 	database_required = 64
 }
@@ -55,35 +55,35 @@ pub mut:
 // Config holds all parsed values from a pacman.conf-format INI file.
 pub struct Config {
 pub mut:
-	rootdir                string      = '/'
-	dbpath                 string      = '/var/lib/ace/'
-	cachedirs              []string
-	logfile                string
-	gpgdir                 string
-	hookdirs               []string
-	holdpkg                []string
-	architectures          []string
-	ignorepkgs             []string
-	ignoregroups           []string
-	noupgrade              []string
-	noextract              []string
-	checkspace             bool
-	parallel_downloads     int         = 3
-	siglevel               SigLevel
-	local_file_siglevel    SigLevel
-	remote_file_siglevel   SigLevel
-	cleanmethod            CleanMethod
-	xfercommand            string
-	color                  ColorWhen   = .auto
-	verbosepkglists        bool
-	usesyslog              bool
-	noprogressbar          bool
-	disabledl_timeout      bool
-	disablesandbox         bool
-	disablesandbox_fs      bool
-	disablesandbox_sys     bool
-	download_user          string
-	repos                  []Repo
+	rootdir              string = '/'
+	dbpath               string = '/var/lib/ace/'
+	cachedirs            []string
+	logfile              string
+	gpgdir               string
+	hookdirs             []string
+	holdpkg              []string
+	architectures        []string
+	ignorepkgs           []string
+	ignoregroups         []string
+	noupgrade            []string
+	noextract            []string
+	checkspace           bool
+	parallel_downloads   int = 3
+	siglevel             SigLevel
+	local_file_siglevel  SigLevel
+	remote_file_siglevel SigLevel
+	cleanmethod          CleanMethod
+	xfercommand          string
+	color                ColorWhen = .auto
+	verbosepkglists      bool
+	usesyslog            bool
+	noprogressbar        bool
+	disabledl_timeout    bool
+	disablesandbox       bool
+	disablesandbox_fs    bool
+	disablesandbox_sys   bool
+	download_user        string
+	repos                []Repo
 }
 
 // ---------------------------------------------------------------------------

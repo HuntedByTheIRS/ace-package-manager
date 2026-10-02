@@ -292,7 +292,7 @@ fn test_resolve_conflicts_replaces_resolves() {
 	conflict := db.Conflict{
 		package1: 'pkg-b'
 		package2: 'pkg-a'
-		reason:   &db.Dependency{name: 'pkg-a', name_hash: db.compute_name_hash('pkg-a')}
+		reason:   &db.Dependency{ name: 'pkg-a', name_hash: db.compute_name_hash('pkg-a') }
 	}
 
 	resolved := resolve_conflicts([conflict], [target_b], db.Database{}) or {
@@ -313,7 +313,7 @@ fn test_resolve_conflicts_reverse_replaces() {
 	conflict := db.Conflict{
 		package1: 'pkg-b'
 		package2: 'pkg-a'
-		reason:   &db.Dependency{name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b')}
+		reason:   &db.Dependency{ name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b') }
 	}
 
 	resolved := resolve_conflicts([conflict], [target_a], db.Database{}) or {
@@ -332,7 +332,7 @@ fn test_resolve_conflicts_not_resolvable() {
 	conflict := db.Conflict{
 		package1: 'pkg-a'
 		package2: 'pkg-b'
-		reason:   &db.Dependency{name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b')}
+		reason:   &db.Dependency{ name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b') }
 	}
 
 	// Should return none (unresolvable)
@@ -353,7 +353,7 @@ fn test_resolve_conflicts_provider_conflict_resolvable() {
 	conflict := db.Conflict{
 		package1: 'pkg-a'
 		package2: 'pkg-b'
-		reason:   &db.Dependency{name: 'virtual-baz', name_hash: db.compute_name_hash('virtual-baz')}
+		reason:   &db.Dependency{ name: 'virtual-baz', name_hash: db.compute_name_hash('virtual-baz') }
 	}
 
 	resolved := resolve_conflicts([conflict], [a, b], db.Database{}) or {
@@ -374,7 +374,7 @@ fn test_resolve_conflicts_provider_conflict_not_resolvable() {
 	conflict := db.Conflict{
 		package1: 'pkg-a'
 		package2: 'pkg-b'
-		reason:   &db.Dependency{name: 'virtual-baz', name_hash: db.compute_name_hash('virtual-baz')}
+		reason:   &db.Dependency{ name: 'virtual-baz', name_hash: db.compute_name_hash('virtual-baz') }
 	}
 
 	// Neither replaces the other → should return none
@@ -394,12 +394,12 @@ fn test_resolve_conflicts_mixed_resolvable_and_not() {
 		db.Conflict{
 			package1: 'pkg-a'
 			package2: 'pkg-b'
-			reason: &db.Dependency{name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b')}
+			reason:   &db.Dependency{ name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b') }
 		},
 		db.Conflict{
 			package1: 'pkg-c'
 			package2: 'pkg-d'
-			reason: &db.Dependency{name: 'pkg-d', name_hash: db.compute_name_hash('pkg-d')}
+			reason:   &db.Dependency{ name: 'pkg-d', name_hash: db.compute_name_hash('pkg-d') }
 		},
 	]
 
@@ -420,12 +420,12 @@ fn test_resolve_conflicts_multiple_resolvable() {
 		db.Conflict{
 			package1: 'pkg-a'
 			package2: 'pkg-b'
-			reason: &db.Dependency{name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b')}
+			reason:   &db.Dependency{ name: 'pkg-b', name_hash: db.compute_name_hash('pkg-b') }
 		},
 		db.Conflict{
 			package1: 'pkg-c'
 			package2: 'pkg-d'
-			reason: &db.Dependency{name: 'pkg-d', name_hash: db.compute_name_hash('pkg-d')}
+			reason:   &db.Dependency{ name: 'pkg-d', name_hash: db.compute_name_hash('pkg-d') }
 		},
 	]
 
@@ -452,7 +452,7 @@ fn make_pkg_with_files(name string, file_names []string) &db.Package {
 	return &db.Package{
 		name:      name
 		name_hash: db.compute_name_hash(name)
-		files:     db.FileList{files: files}
+		files:     db.FileList{ files: files }
 		origin:    .sync_db
 	}
 }
@@ -536,7 +536,7 @@ fn test_file_conflicts_target_vs_fs() {
 	os.write_file(file_path, '') or { panic('write') }
 
 	targets := [make_pkg_with_files('pkg-a', ['usr/bin/existing'])]
-	handle := &util.Handle{root: tmpdir}
+	handle := &util.Handle{ root: tmpdir }
 
 	conflicts := check_file_conflicts(handle, targets, &db.Database{}) or {
 		assert false, 'expected success'
@@ -587,7 +587,7 @@ fn test_file_conflicts_file_vs_dir() {
 
 	// Package has a file entry (no trailing slash) at same path
 	targets := [make_pkg_with_files('pkg-a', ['usr/bin/conflict_dir'])]
-	handle := &util.Handle{root: tmpdir}
+	handle := &util.Handle{ root: tmpdir }
 
 	conflicts := check_file_conflicts(handle, targets, &db.Database{}) or {
 		assert false, 'expected success'
@@ -613,7 +613,7 @@ fn test_file_conflicts_dir_in_pkg_vs_file_on_fs() {
 
 	// Package has a directory entry (trailing slash) at the same path
 	targets := [make_pkg_with_files('pkg-a', ['usr/share/app/'])]
-	handle := &util.Handle{root: tmpdir}
+	handle := &util.Handle{ root: tmpdir }
 
 	conflicts := check_file_conflicts(handle, targets, &db.Database{}) or {
 		assert false, 'expected success'
@@ -659,7 +659,7 @@ fn test_file_conflicts_localdb_upgrade_skip() {
 	localdb.pkgcache['pkg-a'].name = 'pkg-a'
 	localdb.pkgcache['pkg-a'].name_hash = db.compute_name_hash('pkg-a')
 
-	handle := &util.Handle{root: tmpdir}
+	handle := &util.Handle{ root: tmpdir }
 
 	conflicts := check_file_conflicts(handle, targets, &localdb) or {
 		assert false, 'expected success'

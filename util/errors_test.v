@@ -141,7 +141,10 @@ fn fn_ok() !int {
 }
 
 fn test_ace_error_success_path() {
-	val := fn_ok() or { assert false; return }
+	val := fn_ok() or {
+		assert false
+		return
+	}
 	_ := val
 	assert val == 42
 }
@@ -149,27 +152,27 @@ fn test_ace_error_success_path() {
 // ---------- exit_code_from_error ----------
 
 fn test_exit_code_ok() {
-	err := AceError{code: .ok, message: ''}
+	err := AceError{ code: .ok, message: '' }
 	assert exit_code_from_error(err) == 0
 }
 
 fn test_exit_code_generic_error() {
 	for code in [ErrorCode.memory, .system, .badperms, .not_a_file, .handle_null, .db_open,
-		.db_not_found, .server_bad_url, .trans_abort, .pkg_not_found, .pkg_invalid,
-		.sig_missing, .retrieve, .libarchive] {
-		err := AceError{code: code, message: ''}
+		.db_not_found, .server_bad_url, .trans_abort, .pkg_not_found, .pkg_invalid, .sig_missing,
+		.retrieve, .libarchive] {
+		err := AceError{ code: code, message: '' }
 		assert exit_code_from_error(err) == 1
 	}
 }
 
 fn test_exit_code_dependency_conflict() {
-	err_unsat := AceError{code: .unsatisfied_deps, message: ''}
+	err_unsat := AceError{ code: .unsatisfied_deps, message: '' }
 	assert exit_code_from_error(err_unsat) == 127
 
-	err_conf := AceError{code: .conflicting_deps, message: ''}
+	err_conf := AceError{ code: .conflicting_deps, message: '' }
 	assert exit_code_from_error(err_conf) == 127
 
-	err_file := AceError{code: .file_conflicts, message: ''}
+	err_file := AceError{ code: .file_conflicts, message: '' }
 	assert exit_code_from_error(err_file) == 127
 }
 

@@ -14,8 +14,14 @@ fn test_local_db_empty_init() {
 	os.mkdir_all(os.join_path(tmpdir, 'local'), os.MkdirParams{}) or { panic('mkdir: ${err}') }
 	os.write_file(os.join_path(tmpdir, 'local', 'ALPM_DB_VERSION'), '9\n') or { panic('write: ${err}') }
 
-	mut ldb := init(tmpdir) or { assert false; return }
-	ldb.populate() or { assert false; return }
+	mut ldb := init(tmpdir) or {
+		assert false
+		return
+	}
+	ldb.populate() or {
+		assert false
+		return
+	}
 
 	assert ldb.pkgcache.len == 0, 'empty DB should have 0 packages, got ${ldb.pkgcache.len}'
 	assert ldb.get_pkgcache().len == 0

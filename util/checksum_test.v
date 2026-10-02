@@ -30,7 +30,10 @@ fn test_md5sum_matches_cli() {
 		os.rm(path) or {}
 	}
 
-	our := md5sum(path) or { assert false, err.msg(); return }
+	our := md5sum(path) or {
+		assert false, err.msg()
+		return
+	}
 	cli := checksum_cli_hash('md5sum "${path}"')
 
 	assert our == cli, 'our=${our}  cli=${cli}'
@@ -46,7 +49,10 @@ fn test_sha256sum_matches_cli() {
 		os.rm(path) or {}
 	}
 
-	our := sha256sum(path) or { assert false, err.msg(); return }
+	our := sha256sum(path) or {
+		assert false, err.msg()
+		return
+	}
 	cli := checksum_cli_hash('sha256sum "${path}"')
 
 	assert our == cli, 'our=${our}  cli=${cli}'
@@ -62,7 +68,10 @@ fn test_blake2bsum_512_matches_cli() {
 		os.rm(path) or {}
 	}
 
-	our := blake2bsum(path, 512) or { assert false, err.msg(); return }
+	our := blake2bsum(path, 512) or {
+		assert false, err.msg()
+		return
+	}
 	cli := checksum_cli_hash('b2sum "${path}"')
 
 	assert our == cli, 'our=${our}  cli=${cli}'
@@ -79,7 +88,10 @@ fn test_blake2bsum_256() {
 	}
 
 	// b2sum --length=256 gives a different-length hash (64 hex chars vs 128)
-	our := blake2bsum(path, 256) or { assert false, err.msg(); return }
+	our := blake2bsum(path, 256) or {
+		assert false, err.msg()
+		return
+	}
 	cli := checksum_cli_hash('b2sum --length=256 "${path}"')
 
 	assert our == cli, 'our=${our}  cli=${cli}'
@@ -109,9 +121,13 @@ fn test_verify_checksum_correct() {
 		os.rm(path) or {}
 	}
 
-	hash := md5sum(path) or { assert false, err.msg(); return }
+	hash := md5sum(path) or {
+		assert false, err.msg()
+		return
+	}
 	ok := verify_checksum(path, hash, .md5) or {
-		assert false, err.msg(); return
+		assert false, err.msg()
+		return
 	}
 	assert ok == true
 }
@@ -127,7 +143,8 @@ fn test_verify_checksum_wrong() {
 	}
 
 	ok := verify_checksum(path, '00000000000000000000000000000000', .md5) or {
-		assert false, err.msg(); return
+		assert false, err.msg()
+		return
 	}
 	assert ok == false
 }
@@ -153,8 +170,14 @@ fn test_verify_checksum_md5() {
 		os.rm(path) or {}
 	}
 
-	hash := md5sum(path) or { assert false, err.msg(); return }
-	ok := verify_checksum(path, hash, .md5) or { assert false, err.msg(); return }
+	hash := md5sum(path) or {
+		assert false, err.msg()
+		return
+	}
+	ok := verify_checksum(path, hash, .md5) or {
+		assert false, err.msg()
+		return
+	}
 	assert ok
 }
 
@@ -164,8 +187,14 @@ fn test_verify_checksum_sha256() {
 		os.rm(path) or {}
 	}
 
-	hash := sha256sum(path) or { assert false, err.msg(); return }
-	ok := verify_checksum(path, hash, .sha256) or { assert false, err.msg(); return }
+	hash := sha256sum(path) or {
+		assert false, err.msg()
+		return
+	}
+	ok := verify_checksum(path, hash, .sha256) or {
+		assert false, err.msg()
+		return
+	}
 	assert ok
 }
 
@@ -175,8 +204,14 @@ fn test_verify_checksum_blake2b() {
 		os.rm(path) or {}
 	}
 
-	hash := blake2bsum(path, 512) or { assert false, err.msg(); return }
-	ok := verify_checksum(path, hash, .blake2b) or { assert false, err.msg(); return }
+	hash := blake2bsum(path, 512) or {
+		assert false, err.msg()
+		return
+	}
+	ok := verify_checksum(path, hash, .blake2b) or {
+		assert false, err.msg()
+		return
+	}
 	assert ok
 }
 

@@ -44,9 +44,9 @@ pub:
 // ---------------------------------------------------------------
 pub fn sandbox_config_from_handle(handle &util.Handle) SandboxConfig {
 	return SandboxConfig{
-		download_user:     handle.download_user
-		disable_sandbox:   handle.disable_sandbox
-		disable_sandbox_fs: handle.disable_sandbox_fs
+		download_user:       handle.download_user
+		disable_sandbox:     handle.disable_sandbox
+		disable_sandbox_fs:  handle.disable_sandbox_fs
 		disable_sandbox_sys: handle.disable_sandbox_sys
 	}
 }

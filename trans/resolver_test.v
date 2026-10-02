@@ -371,7 +371,7 @@ fn test_dep_satisfies_provides_version() {
 	pkg := &db.Package{
 		name:      'myapp'
 		version:   '1.0'
-		provides:  [db.Dependency{name: 'libfoo', version: '1.5', modifier: .eq, name_hash: db.compute_name_hash('libfoo')}]
+		provides:  [db.Dependency{ name: 'libfoo', version: '1.5', modifier: .eq, name_hash: db.compute_name_hash('libfoo') }]
 		name_hash: db.compute_name_hash('myapp')
 	}
 	// Version constraint on the provides

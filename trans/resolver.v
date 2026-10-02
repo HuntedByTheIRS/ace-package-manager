@@ -95,16 +95,16 @@ pub fn sort_by_deps(pkgs []&db.Package, mode SortMode) ![]&db.Package {
 		// Reset seen set for dedup within a single package's depends.
 		seen.clear()
 
-	for dep in pkg.depends {
-		// Direct name match in the input list.
-		if dep.name in name_to_idx {
-			j := name_to_idx[dep.name]
-			if j != i && dep.name !in seen {
-				seen[dep.name] = true
-				adj[i] << j
+		for dep in pkg.depends {
+			// Direct name match in the input list.
+			if dep.name in name_to_idx {
+				j := name_to_idx[dep.name]
+				if j != i && dep.name !in seen {
+					seen[dep.name] = true
+					adj[i] << j
+				}
+				continue
 			}
-			continue
-		}
 
 			// Provides match: check if any package in the list provides this dep.
 			for j, other in pkgs {
@@ -127,7 +127,7 @@ pub fn sort_by_deps(pkgs []&db.Package, mode SortMode) ![]&db.Package {
 	}
 	mut result := []&db.Package{}
 
-	for i in 0..pkgs.len {
+	for i in 0 .. pkgs.len {
 		if state[i] == .unprocessed {
 			dfs(i, pkgs, adj, mut state, mut result)
 		}
@@ -138,7 +138,7 @@ pub fn sort_by_deps(pkgs []&db.Package, mode SortMode) ![]&db.Package {
 	// dependencies.
 	if mode == .remove {
 		mut reversed := unsafe { []&db.Package{len: result.len} }
-		for i in 0..result.len {
+		for i in 0 .. result.len {
 			reversed[result.len - 1 - i] = result[i]
 		}
 		return reversed
@@ -189,7 +189,7 @@ pub:
 pub struct ResolveResult {
 pub:
 	resolved         []&db.Package // packages in topological order (leaves first)
-	unresolved       []string       // dependency specifiers that could not be satisfied
+	unresolved       []string      // dependency specifiers that could not be satisfied
 	provider_choices []ProviderChoice
 }
 
@@ -203,7 +203,7 @@ pub:
 	// Pre-built index: virtual provider name → packages that provide it
 	// in the local database.  Built once after localdb.populate() to
 	// avoid O(N) linear scans in satisfied_by_localdb.
-	local_provides   map[string][]&db.Package
+	local_provides map[string][]&db.Package
 }
 
 // resolve_deps resolves all transitive dependencies for the given target
@@ -307,7 +307,7 @@ fn resolve_pkg(
 	mut resolved []&db.Package,
 	mut unresolved []string,
 	mut provider_choices []ProviderChoice,
-	mut visited map[string]bool,
+	mut visited map[string]bool
 ) {
 	if pkg.name in visited {
 		return
@@ -700,8 +700,8 @@ pub fn check_deps(_handle &util.Handle, local_pkgs []&db.Package, remove []&db.P
 			for i in 0 .. lp.depends.len {
 				dep := &lp.depends[i]
 				if causing := find_causing_pkg(dep, modified) {
-					if !issatisfied_by_list(dep, upgrade) &&
-						!issatisfied_by_list(dep, dblist) {
+					if !issatisfied_by_list(dep, upgrade)
+						&& !issatisfied_by_list(dep, dblist) {
 						baddeps << db.DepMissing{
 							target:      lp.name
 							depend:      dep

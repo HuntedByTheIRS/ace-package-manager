@@ -45,10 +45,10 @@ pub fn run_sync(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 
 	// 3. Acquire database lock for operations that modify state.
 	// Query operations (search, info, list, groups) and --print skip the lock.
-	needs_lock := (args.sync_count > 0 || args.sync_clean > 0 || args.sync_upgrade > 0 ||
-		args.download_only || args.targets.len > 0) &&
-		!args.sync_search && args.sync_info == 0 && !args.sync_list && args.sync_group == 0 &&
-		!args.print
+	needs_lock := (args.sync_count > 0 || args.sync_clean > 0 || args.sync_upgrade > 0
+		|| args.download_only || args.targets.len > 0)
+		&& !args.sync_search && args.sync_info == 0 && !args.sync_list && args.sync_group == 0
+		&& !args.print
 
 	mut lf := LockFile{}
 	if needs_lock {
@@ -90,8 +90,8 @@ pub fn run_sync(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 	}
 
 	// 8. Load sync databases for operations that need them.
-	need_data := args.sync_search || args.sync_info > 0 || args.sync_list ||
-		args.sync_group > 0 || args.targets.len > 0 || args.sync_upgrade > 0
+	need_data := args.sync_search || args.sync_info > 0 || args.sync_list
+		|| args.sync_group > 0 || args.targets.len > 0 || args.sync_upgrade > 0
 
 	mut syncdbs := []&db.Database{}
 	if need_data {
@@ -252,14 +252,14 @@ fn repo_sync(repo config.Repo, sync_dir string, force bool) ! {
 
 		print('  ${treename}: downloading ${treename}.db...\n')
 		dl.download(download.DownloadPayload{
-			url:            url
-			filename:       '${treename}.db'
-			dest_path:      db_path
-			force:          force
-			sig_download:   need_db_sig
-			sig_optional:   sig_optional
-			allow_resume:   false
-			max_size:       128 * 1024 * 1024 // 128 MiB hard limit
+			url:          url
+			filename:     '${treename}.db'
+			dest_path:    db_path
+			force:        force
+			sig_download: need_db_sig
+			sig_optional: sig_optional
+			allow_resume: false
+			max_size:     128 * 1024 * 1024 // 128 MiB hard limit
 		}) or {
 			print('\r\033[K')
 			println('  ${treename}: failed (${err.msg()})')
@@ -304,13 +304,13 @@ fn load_sync_dbs(repos []config.Repo, sync_dir string) ![]&db.Database {
 	result_ch := chan DBResult{cap: repos.len}
 
 	for repo in repos {
-		go fn [repo, sync_dir, result_ch]() {
+		go fn [repo, sync_dir, result_ch] () {
 			db_path := os.join_path(sync_dir, '${repo.name}.db')
 			if !os.exists(db_path) {
 				result_ch <- DBResult{
-					database: unsafe { nil }
+					database:  unsafe { nil }
 					repo_name: repo.name
-					err_msg: '${repo.name}: database not found at ${db_path}'
+					err_msg:   '${repo.name}: database not found at ${db_path}'
 				}
 				return
 			}
@@ -318,9 +318,9 @@ fn load_sync_dbs(repos []config.Repo, sync_dir string) ![]&db.Database {
 			mut sdb := db.new_sync_db()
 			db.populate(mut sdb, db_path) or {
 				result_ch <- DBResult{
-					database: unsafe { nil }
+					database:  unsafe { nil }
 					repo_name: repo.name
-					err_msg: '${repo.name}: ${err.msg()}'
+					err_msg:   '${repo.name}: ${err.msg()}'
 				}
 				return
 			}
@@ -353,11 +353,11 @@ fn load_sync_dbs(repos []config.Repo, sync_dir string) ![]&db.Database {
 	}
 
 	if result.len == 0 {
-		return error('no databases could be loaded: ${errors.join("; ")}')
+		return error('no databases could be loaded: ${errors.join('; ')}')
 	}
 
 	if errors.len > 0 {
-		eprintln(warn('some databases failed to load: ${errors.join("; ")}'))
+		eprintln(warn('some databases failed to load: ${errors.join('; ')}'))
 	}
 
 	return result
@@ -597,10 +597,10 @@ fn print_sync_pkg_info(pkg &db.Package, repo_name string, level int) {
 		println('URL           : ${pkg.url}')
 	}
 	if pkg.licenses.len > 0 {
-		println('Licenses      : ${pkg.licenses.join("  ")}')
+		println('Licenses      : ${pkg.licenses.join('  ')}')
 	}
 	if pkg.groups.len > 0 {
-		println('Groups        : ${pkg.groups.join("  ")}')
+		println('Groups        : ${pkg.groups.join('  ')}')
 	}
 	if pkg.download_size > 0 {
 		println('Download Size : ${pkg.download_size} B')
@@ -629,14 +629,14 @@ fn print_sync_pkg_info(pkg &db.Package, repo_name string, level int) {
 		for d in pkg.replaces {
 			repl_strs << d.to_string()
 		}
-		println('Replaces      : ${repl_strs.join("  ")}')
+		println('Replaces      : ${repl_strs.join('  ')}')
 	}
 	if pkg.depends.len > 0 {
 		mut dep_strs := []string{}
 		for d in pkg.depends {
 			dep_strs << d.to_string()
 		}
-		println('Depends On    : ${dep_strs.join("  ")}')
+		println('Depends On    : ${dep_strs.join('  ')}')
 	}
 	if pkg.optdepends.len > 0 {
 		mut opt_strs := []string{}
@@ -647,35 +647,35 @@ fn print_sync_pkg_info(pkg &db.Package, repo_name string, level int) {
 				opt_strs << d.to_string()
 			}
 		}
-		println('Optional Deps : ${opt_strs.join("  ")}')
+		println('Optional Deps : ${opt_strs.join('  ')}')
 	}
 	if pkg.makedepends.len > 0 {
 		mut m_strs := []string{}
 		for d in pkg.makedepends {
 			m_strs << d.to_string()
 		}
-		println('Make Deps     : ${m_strs.join("  ")}')
+		println('Make Deps     : ${m_strs.join('  ')}')
 	}
 	if pkg.checkdepends.len > 0 {
 		mut c_strs := []string{}
 		for d in pkg.checkdepends {
 			c_strs << d.to_string()
 		}
-		println('Check Deps    : ${c_strs.join("  ")}')
+		println('Check Deps    : ${c_strs.join('  ')}')
 	}
 	if pkg.conflicts.len > 0 {
 		mut conf_strs := []string{}
 		for d in pkg.conflicts {
 			conf_strs << d.to_string()
 		}
-		println('Conflicts With: ${conf_strs.join("  ")}')
+		println('Conflicts With: ${conf_strs.join('  ')}')
 	}
 	if pkg.provides.len > 0 {
 		mut prov_strs := []string{}
 		for d in pkg.provides {
 			prov_strs << d.to_string()
 		}
-		println('Provides      : ${prov_strs.join("  ")}')
+		println('Provides      : ${prov_strs.join('  ')}')
 	}
 
 	// Level 2: show files if present.
@@ -724,7 +724,7 @@ fn sync_list_dbs(syncdbs []&db.Database, targets []string, dbpath string, quiet 
 			if ldb := db.init(dbpath) {
 				mut ldb_mut := ldb
 				ldb_mut.populate() or {}
-				                local_pkgcache = ldb_mut.pkgcache.clone()
+				local_pkgcache = ldb_mut.pkgcache.clone()
 			}
 		}
 	}
@@ -770,7 +770,11 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		root:            root
 		dbpath:          handle_dbpath
 		overwrite_files: args.overwrite_files
-		hookedirs:       if args.hookdirs.len > 0 { args.hookdirs.clone() } else { cfg.hookdirs.clone() }
+		hookedirs:       if args.hookdirs.len > 0 {
+			args.hookdirs.clone()
+		} else {
+			cfg.hookdirs.clone()
+		}
 	}
 
 	// 3. Open local database.
@@ -793,8 +797,8 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	ignoregroups << args.ignore_groups
 
 	resolve_hnd := &trans.ResolveHandle{
-		ignorepkgs:   ignorepkgs
-		ignoregroups: ignoregroups
+		ignorepkgs:     ignorepkgs
+		ignoregroups:   ignoregroups
 		// Pre-build local provides index for O(1) provider lookups
 		// during dependency resolution.  Without this, satisfied_by_localdb
 		// does an O(N) scan of every installed package per dependency.
@@ -1125,7 +1129,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 		}
 	}
 	if errors.len > 0 {
-		return error('failed to add packages: ${errors.join("; ")}')
+		return error('failed to add packages: ${errors.join('; ')}')
 	}
 
 	// 8. Prepare (resolve dependencies, check conflicts).
@@ -1411,7 +1415,7 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	}
 
 	if install_errors.len > 0 {
-		return error('installation failed: ${install_errors.join("; ")}')
+		return error('installation failed: ${install_errors.join('; ')}')
 	}
 
 	// Run post-transaction hooks (initramfs, font cache, etc.).
@@ -1473,7 +1477,7 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 	// Spawn download goroutines.
 	println('')
 	for i, payload in payloads {
-		go fn [payload, i, sem, result_ch, prog_ch]() {
+		go fn [payload, i, sem, result_ch, prog_ch] () {
 			_ = <-sem
 			defer {
 				sem <- 0
@@ -1482,9 +1486,9 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 			mut download_ok := false
 			defer {
 				result_ch <- DLResult{
-					idx: i
+					idx:      i
 					filename: ''
-					ok: download_ok
+					ok:       download_ok
 				}
 				// Signal completion with 100%.
 				prog_ch <- DLProg{
@@ -1629,8 +1633,11 @@ fn progress_bar_str(pct int, width int) string {
 }
 
 fn heading_str(s string) string { return heading(s) }
+
 fn pkg_str(s string) string { return pkg(s) }
+
 fn sync_ver(s string) string { return pkg_version(s) }
+
 fn pkg_head(s string) string { return pkg(s) }
 
 // pkg_file_names extracts plain file paths from a db.Package file list.

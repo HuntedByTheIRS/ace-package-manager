@@ -470,7 +470,7 @@ fn (mut lc LibCheck) save_cache() {
 	lines << '# ace libcheck cache v1 — auto-generated'
 	for pkgname, providers in lc.cache_entries {
 		if providers.len > 0 {
-			lines << '${pkgname}=${providers.join(",")}'
+			lines << '${pkgname}=${providers.join(',')}'
 		} else {
 			lines << '${pkgname}='
 		}

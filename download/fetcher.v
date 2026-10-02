@@ -144,7 +144,7 @@ pub fn (mut d Downloader) download(payload DownloadPayload) ! {
 		chunk []u8,
 		read_so_far u64,
 		expected u64,
-		status_code int,
+		status_code int
 	) ! {
 		// Only stream body data for successful responses (200 / 206).
 		// status_code == 0 means headers not yet parsed — skip.
@@ -212,7 +212,7 @@ pub fn (mut d Downloader) download(payload DownloadPayload) ! {
 			return error('failed to open retry temp file "${temp_path}": ${err.msg()}')
 		}
 		retry_req.on_progress_body = fn [mut rf] (_ &http.Request, chunk []u8, _ u64, _ u64,
-			status_code int,
+			status_code int
 		) ! {
 			if chunk.len > 0 && (status_code == 200 || status_code == 0) {
 				rf.write(chunk) or {
@@ -274,7 +274,7 @@ fn (mut d Downloader) download_sig(dest_path string, url string, optional bool) 
 
 	// --- streaming callback for sig data ------------------------------------
 	req.on_progress_body = fn [mut f] (_ &http.Request, chunk []u8, _ u64, _ u64,
-		status_code int,
+		status_code int
 	) ! {
 		if chunk.len > 0 && (status_code == 200 || status_code == 206 || status_code == 0) {
 			f.write(chunk) or {

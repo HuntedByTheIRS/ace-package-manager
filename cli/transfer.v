@@ -25,22 +25,22 @@ pub fn run_transfer(args &CliArgs, handle &util.Handle) ! {
 	root := if args.root != '' { args.root } else { handle.root }
 
 	pacman_conf := '/etc/pacman.conf'
-	ace_conf    := '/etc/ace.conf'
+	ace_conf := '/etc/ace.conf'
 
 	pacman_dbpath := '/var/lib/pacman'
-	ace_dbpath    := os.join_path(root, 'var/lib/ace')
+	ace_dbpath := os.join_path(root, 'var/lib/ace')
 
 	pacman_cache := '/var/cache/pacman/pkg'
-	ace_cache    := os.join_path(root, 'var/cache/ace/pkg')
+	ace_cache := os.join_path(root, 'var/cache/ace/pkg')
 
 	pacman_hooks := '/etc/pacman.d/hooks'
-	ace_hooks    := '/etc/ace/hooks'
+	ace_hooks := '/etc/ace/hooks'
 
-	pacman_gpg   := '/etc/pacman.d/gnupg'
-	ace_gpg      := '/etc/ace/gnupg'
+	pacman_gpg := '/etc/pacman.d/gnupg'
+	ace_gpg := '/etc/ace/gnupg'
 
-	pacman_log   := '/var/log/pacman.log'
-	ace_log      := os.join_path(root, 'var/log/ace.log')
+	pacman_log := '/var/log/pacman.log'
+	ace_log := os.join_path(root, 'var/log/ace.log')
 
 	mut errors := []string{}
 	mut copied := 0
@@ -139,7 +139,8 @@ fn copy_dir_recursive(src_dir string, dst_dir string, mut errors []string) !int 
 
 	mut count := 0
 
-	for entry in entries {		if entry == '.' || entry == '..' {
+	for entry in entries {
+		if entry == '.' || entry == '..' {
 			continue
 		}
 

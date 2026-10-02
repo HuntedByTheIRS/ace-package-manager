@@ -205,11 +205,11 @@ pub fn verify_package_signature(handle &util.Handle, pkgfile string, pkg &util.P
 // ALPM_QUESTION_CORRUPTED_PKG flow.
 // ---------------------------------------------------------------
 pub fn is_corrupted_pkg(err_msg string) bool {
-	return err_msg.contains('checksum mismatch') ||
-		err_msg.contains('corrupted') ||
-		err_msg.contains('PGP signature') ||
-		err_msg.contains('signature verification failed') ||
-		err_msg.contains('empty')
+	return err_msg.contains('checksum mismatch')
+		|| err_msg.contains('corrupted')
+		|| err_msg.contains('PGP signature')
+		|| err_msg.contains('signature verification failed')
+		|| err_msg.contains('empty')
 }
 
 // ---------------------------------------------------------------
@@ -220,13 +220,14 @@ pub fn remove_corrupted_pkg(pkg_name string, cachedirs []string) ! {
 	for dir in cachedirs {
 		entries := os.ls(dir) or { continue }
 		for entry in entries {
-			if entry.starts_with(pkg_name) && (entry.ends_with('.pkg.tar.zst') ||
-				entry.ends_with('.pkg.tar.xz') ||
-				entry.ends_with('.pkg.tar') ||
-				entry.ends_with('.sig'))
+			if entry.starts_with(pkg_name) && (entry.ends_with('.pkg.tar.zst')
+				|| entry.ends_with('.pkg.tar.xz')
+				|| entry.ends_with('.pkg.tar')
+				|| entry.ends_with('.sig'))
 			{
 				full := os.join_path(dir, entry)
-				os.rm(full) or { /* best effort */ }
+				os.rm(full) or { /* best effort */
+				}
 			}
 		}
 	}

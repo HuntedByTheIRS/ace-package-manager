@@ -249,8 +249,8 @@ fn display_pkg(pkg &db.Package, args &CliArgs, local_db &db.LocalDB, root string
 		}
 	}
 
-    // Plain display (no -i, -l, -c, -k)
-    if args.query_info == 0 && !args.query_list && !args.query_changelog && args.query_check == 0 {
+	// Plain display (no -i, -l, -c, -k)
+	if args.query_info == 0 && !args.query_list && !args.query_changelog && args.query_check == 0 {
 		if args.quiet {
 			println(pkg.name)
 		} else {
@@ -669,8 +669,8 @@ fn query_groups(local_db &db.LocalDB, targets []string, quiet bool) {
 					}
 				}
 			}
-		if !found {
-			eprintln(err_str('group "${target}" was not found'))
+			if !found {
+				eprintln(err_str('group "${target}" was not found'))
 			}
 		}
 	}

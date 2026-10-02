@@ -36,45 +36,45 @@ pub mut:
 	root      string   // --root / -r
 	dbpath    string   // --dbpath / -b
 	// --- Global options ---
-	cachedirs []string // --cachedir  (may appear multiple times)
-	hookdirs  []string // --hookdir   (may appear multiple times)
-	gpgdir    string   // --gpgdir
-	logfile   string   // --logfile
-	arch      []string // --arch     (may appear multiple times)
-	pacman_mode bool   // --pacman   use pacman paths (config, dbpath, etc.)
-	transfer    bool   // --transfer migrate pacman data to ace native directories
-	all_optional bool  // --all-optional  install all optional deps
-	libs         bool  // --libs          check library-level deps and install providers
-	extreme_libs bool  // --extreme-libs  cross-reference with ldconfig -p for library needs
-	ignore_groups []string // --ignoregroup  groups to ignore during upgrades
-	color         string   // --color        <auto|never|always>
-	noprogressbar bool     // --noprogressbar
-	disable_dl_timeout bool // --disable-download-timeout
-	disable_sandbox    bool // --disable-sandbox
-	parallel_downloads int  // --parallel=N  override config ParallelDownloads
-	deptree      bool  // --deptree       show dependency tree
-	show_history bool  // --history       show transaction history
-	keyring_init     bool   // --keyring-init   initialize GPG keyring
-	keyring_populate string // --keyring-populate <name>  import keyring keys
-	noconfirm bool     // --noconfirm
-	verbose   bool     // --verbose / -v
-	debug     int      // --debug    (optional argument, 0=no, 1=debug, 2=debug+function)
+	cachedirs          []string // --cachedir  (may appear multiple times)
+	hookdirs           []string // --hookdir   (may appear multiple times)
+	gpgdir             string   // --gpgdir
+	logfile            string   // --logfile
+	arch               []string // --arch     (may appear multiple times)
+	pacman_mode        bool     // --pacman   use pacman paths (config, dbpath, etc.)
+	transfer           bool     // --transfer migrate pacman data to ace native directories
+	all_optional       bool     // --all-optional  install all optional deps
+	libs               bool     // --libs          check library-level deps and install providers
+	extreme_libs       bool     // --extreme-libs  cross-reference with ldconfig -p for library needs
+	ignore_groups      []string // --ignoregroup  groups to ignore during upgrades
+	color              string   // --color        <auto|never|always>
+	noprogressbar      bool     // --noprogressbar
+	disable_dl_timeout bool     // --disable-download-timeout
+	disable_sandbox    bool     // --disable-sandbox
+	parallel_downloads int      // --parallel=N  override config ParallelDownloads
+	deptree            bool     // --deptree       show dependency tree
+	show_history       bool     // --history       show transaction history
+	keyring_init       bool     // --keyring-init   initialize GPG keyring
+	keyring_populate   string   // --keyring-populate <name>  import keyring keys
+	noconfirm          bool     // --noconfirm
+	verbose            bool     // --verbose / -v
+	debug              int      // --debug    (optional argument, 0=no, 1=debug, 2=debug+function)
 	// --- Query (-Q) flags ---
-	query_info       int    // -i / --info  count (0,1,2)
-	query_list       bool   // -l / --list
-	query_changelog  bool   // -c / --changelog
-	query_check      int    // -k / --check count (0,1,2)
-	query_groups     int    // -g / --groups count (0,1,2)
-	query_search     bool   // -s / --search
-	query_owns       bool   // -o / --owns
-	query_file       bool   // -p / --file  (pkg file, not DB)
-	query_deps       bool   // -d / --deps
-	query_explicit   bool   // -e / --explicit
-	query_native     bool   // -n / --native
-	query_foreign    bool   // -m / --foreign
-	query_unrequired int    // -t / --unrequired count (0,1,2)
-	query_upgrades   bool   // -u / --upgrades
-	quiet            bool   // -q / --quiet (per-operation for -Q)
+	query_info       int  // -i / --info  count (0,1,2)
+	query_list       bool // -l / --list
+	query_changelog  bool // -c / --changelog
+	query_check      int  // -k / --check count (0,1,2)
+	query_groups     int  // -g / --groups count (0,1,2)
+	query_search     bool // -s / --search
+	query_owns       bool // -o / --owns
+	query_file       bool // -p / --file  (pkg file, not DB)
+	query_deps       bool // -d / --deps
+	query_explicit   bool // -e / --explicit
+	query_native     bool // -n / --native
+	query_foreign    bool // -m / --foreign
+	query_unrequired int  // -t / --unrequired count (0,1,2)
+	query_upgrades   bool // -u / --upgrades
+	quiet            bool // -q / --quiet (per-operation for -Q)
 	// --- Remove (-R) flags ---
 	recursive   int  // -s  count: 1=recurse deps, 2=recurse all (including explicit)
 	cascading   bool // -c  remove packages that depend on targets
@@ -92,21 +92,21 @@ pub mut:
 	overwrite_files []string // --overwrite  list of glob patterns
 	ignore_pkgs     []string // --ignore  list of packages to ignore
 	// --- Sync (-S) flags ---
-	sync_count    int  // -y  count: 0=none, 1=-Sy, 2=-Syy
-	sync_search   bool // -Ss
-	sync_info     int  // -i  count: 0=none, 1=-Si, 2=-Sii
-	sync_list     bool // -Sl
-	sync_group    int  // -g  count: 0=none, 1=-Sg, 2=-Sgg
-	sync_clean    int  // -c  count: 0=none, 1=-Sc, 2=-Scc
-	sync_upgrade  int  // -u  count: 0=none, 1=-Su, 2=-Suu
+	sync_count   int  // -y  count: 0=none, 1=-Sy, 2=-Syy
+	sync_search  bool // -Ss
+	sync_info    int  // -i  count: 0=none, 1=-Si, 2=-Sii
+	sync_list    bool // -Sl
+	sync_group   int  // -g  count: 0=none, 1=-Sg, 2=-Sgg
+	sync_clean   int  // -c  count: 0=none, 1=-Sc, 2=-Scc
+	sync_upgrade int  // -u  count: 0=none, 1=-Su, 2=-Suu
 	// --- Database (-D) flags ---
-	database_check     int  // -k/--check  count: 0=none, 1=-Dk, 2=-Dkk
-	database_asdeps    bool // --asdeps  mark as dependency
+	database_check      int  // -k/--check  count: 0=none, 1=-Dk, 2=-Dkk
+	database_asdeps     bool // --asdeps  mark as dependency
 	database_asexplicit bool // --asexplicit  mark as explicitly installed
 	// --- Files (-F) flags ---
-	files_list      bool // -l/--list  list files in packages
-	files_refresh   int  // -y/--refresh  count: 0=none, 1=-Fy, 2=-Fyy
-	files_regex     bool // -x/--regex  treat search as regex
+	files_list            bool // -l/--list  list files in packages
+	files_refresh         int  // -y/--refresh  count: 0=none, 1=-Fy, 2=-Fyy
+	files_regex           bool // -x/--regex  treat search as regex
 	files_machinereadable bool // --machinereadable  null-delimited output
 }
 
@@ -695,7 +695,10 @@ pub fn parse_args_from(raw []string) CliArgs {
 		// Check if ANY target is "-"
 		mut has_dash := false
 		for t in args.targets {
-			if t == '-' { has_dash = true; break }
+			if t == '-' {
+				has_dash = true
+				break
+			}
 		}
 		if has_dash {
 			stdin_lines := os.get_lines()

@@ -386,7 +386,7 @@ mut:
 
 __global (
 	dl_active  []DownloadState // currently downloading files
-	dl_prev_ln int            // lines used in previous redraw
+	dl_prev_ln int // lines used in previous redraw
 )
 
 fn init() {

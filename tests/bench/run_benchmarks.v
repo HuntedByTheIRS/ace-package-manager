@@ -57,8 +57,8 @@ fn main() {
 	println('')
 
 	scripts := [
-		BenchScript{'vercmp',        'tests/bench/bench_vercmp.v'},
-		BenchScript{'db_load',       'tests/bench/bench_db_load.v'},
+		BenchScript{'vercmp', 'tests/bench/bench_vercmp.v'},
+		BenchScript{'db_load', 'tests/bench/bench_db_load.v'},
 	]
 
 	mut results := []BenchResult{}

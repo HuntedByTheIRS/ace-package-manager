@@ -20,43 +20,43 @@ pub enum LogLevel {
 
 pub enum EventType {
 	unknown = 0
-	add_done          // ALPM_EVENT_ADD_DONE = 1
-	add_start         // ALPM_EVENT_ADD_START
-	remove_done       // ALPM_EVENT_REMOVE_DONE
-	remove_start      // ALPM_EVENT_REMOVE_START
-	upgrade_done      // ALPM_EVENT_UPGRADE_DONE
-	upgrade_start     // ALPM_EVENT_UPGRADE_START
-	integrity_done    // ALPM_EVENT_INTEGRITY_DONE
-	integrity_start   // ALPM_EVENT_INTEGRITY_START
-	keyring_done      // ALPM_EVENT_KEYRING_DONE
-	keyring_start     // ALPM_EVENT_KEYRING_START
-	config_done       // ALPM_EVENT_CONFIG_DONE
-	config_start      // ALPM_EVENT_CONFIG_START
-	diskspace_start   // ALPM_EVENT_DISKSPACE_START
-	diskspace_done    // ALPM_EVENT_DISKSPACE_DONE
-	done              // ALPM_EVENT_DONE
-	start             // ALPM_EVENT_START
-	download_done     // ALPM_EVENT_DOWNLOAD_DONE
-	download_start    // ALPM_EVENT_DOWNLOAD_START
-	download_db_start // ALPM_EVENT_DOWNLOAD_DB_START
-	download_db_done  // ALPM_EVENT_DOWNLOAD_DB_DONE
-	hook_start        // ALPM_EVENT_HOOK_START
-	hook_done         // ALPM_EVENT_HOOK_DONE
-	hook_run_start    // ALPM_EVENT_HOOK_RUN_START
-	hook_run_done     // ALPM_EVENT_HOOK_RUN_DONE
-	optdep_removal_start  // ALPM_EVENT_OPTDEP_REMOVAL_START
-	optdep_removal_done   // ALPM_EVENT_OPTDEP_REMOVAL_DONE
-	database_locked   // ALPM_EVENT_DATABASE_LOCKED
-	database_unlocked // ALPM_EVENT_DATABASE_UNLOCKED
-	pacnew_created    // ALPM_EVENT_PACNEW_CREATED
-	pacsave_created   // ALPM_EVENT_PACSAVE_CREATED
-	scriptlet_info    // ALPM_EVENT_SCRIPTLET_INFO
-	retrieve_start    // ALPM_EVENT_RETRIEVE_START
-	retrieve_done     // ALPM_EVENT_RETRIEVE_DONE
-	pkg_retrieve_done     // ALPM_EVENT_PKG_RETRIEVE_DONE
-	pkg_retrieve_failed   // ALPM_EVENT_PKG_RETRIEVE_FAILED
-	searching_start   // ALPM_EVENT_SEARCHING_START
-	searching_done    // ALPM_EVENT_SEARCHING_DONE
+	add_done             // ALPM_EVENT_ADD_DONE = 1
+	add_start            // ALPM_EVENT_ADD_START
+	remove_done          // ALPM_EVENT_REMOVE_DONE
+	remove_start         // ALPM_EVENT_REMOVE_START
+	upgrade_done         // ALPM_EVENT_UPGRADE_DONE
+	upgrade_start        // ALPM_EVENT_UPGRADE_START
+	integrity_done       // ALPM_EVENT_INTEGRITY_DONE
+	integrity_start      // ALPM_EVENT_INTEGRITY_START
+	keyring_done         // ALPM_EVENT_KEYRING_DONE
+	keyring_start        // ALPM_EVENT_KEYRING_START
+	config_done          // ALPM_EVENT_CONFIG_DONE
+	config_start         // ALPM_EVENT_CONFIG_START
+	diskspace_start      // ALPM_EVENT_DISKSPACE_START
+	diskspace_done       // ALPM_EVENT_DISKSPACE_DONE
+	done                 // ALPM_EVENT_DONE
+	start                // ALPM_EVENT_START
+	download_done        // ALPM_EVENT_DOWNLOAD_DONE
+	download_start       // ALPM_EVENT_DOWNLOAD_START
+	download_db_start    // ALPM_EVENT_DOWNLOAD_DB_START
+	download_db_done     // ALPM_EVENT_DOWNLOAD_DB_DONE
+	hook_start           // ALPM_EVENT_HOOK_START
+	hook_done            // ALPM_EVENT_HOOK_DONE
+	hook_run_start       // ALPM_EVENT_HOOK_RUN_START
+	hook_run_done        // ALPM_EVENT_HOOK_RUN_DONE
+	optdep_removal_start // ALPM_EVENT_OPTDEP_REMOVAL_START
+	optdep_removal_done  // ALPM_EVENT_OPTDEP_REMOVAL_DONE
+	database_locked      // ALPM_EVENT_DATABASE_LOCKED
+	database_unlocked    // ALPM_EVENT_DATABASE_UNLOCKED
+	pacnew_created       // ALPM_EVENT_PACNEW_CREATED
+	pacsave_created      // ALPM_EVENT_PACSAVE_CREATED
+	scriptlet_info       // ALPM_EVENT_SCRIPTLET_INFO
+	retrieve_start       // ALPM_EVENT_RETRIEVE_START
+	retrieve_done        // ALPM_EVENT_RETRIEVE_DONE
+	pkg_retrieve_done    // ALPM_EVENT_PKG_RETRIEVE_DONE
+	pkg_retrieve_failed  // ALPM_EVENT_PKG_RETRIEVE_FAILED
+	searching_start      // ALPM_EVENT_SEARCHING_START
+	searching_done       // ALPM_EVENT_SEARCHING_DONE
 }
 
 // ------------------------------------------------------------
@@ -80,9 +80,9 @@ pub enum QuestionType {
 // ------------------------------------------------------------
 
 pub enum DownloadEventType {
-	init = 1      // ALPM_DOWNLOAD_INIT
-	progress      // ALPM_DOWNLOAD_PROGRESS
-	completed     // ALPM_DOWNLOAD_COMPLETED
+	init = 1 // ALPM_DOWNLOAD_INIT
+	progress  // ALPM_DOWNLOAD_PROGRESS
+	completed // ALPM_DOWNLOAD_COMPLETED
 }
 
 // ------------------------------------------------------------
@@ -95,15 +95,15 @@ pub struct Event {
 pub:
 	typ EventType
 	// Package-identity fields (add / remove / upgrade)
-	pkg_name    string
-	pkg_version string
+	pkg_name        string
+	pkg_version     string
 	pkg_old_version string
 	// Hook events
 	hook_name string
 	hook_desc string
 	// Download events (filename, transfer progress)
-	filename    string
-	total_bytes i64
+	filename     string
+	total_bytes  i64
 	xfered_bytes i64
 	// Scriptlet output line
 	line string
@@ -139,12 +139,12 @@ pub:
 	// Remove packages
 	remove_targets []string
 	// Provider selection
-	dep_name   string
-	providers  []string
+	dep_name  string
+	providers []string
 	// Import key
-	key_id       string
-	fingerprint  string
-	key_owner    string
+	key_id      string
+	fingerprint string
+	key_owner   string
 	// The callback sets this to true (yes/proceed) or false (no/cancel).
 	// --noconfirm auto-sets a safe default based on question type.
 pub mut:
@@ -179,12 +179,12 @@ pub type QuestionCallback = fn (question &Question)
 
 pub struct Package {
 pub:
-	name    string
-	version string
-	release string
-	arch    string
-	sha256sum string // expected SHA256 hash (from sync DB)
-	files   []string // package file list — used for Path hook triggers
+	name      string
+	version   string
+	release   string
+	arch      string
+	sha256sum string   // expected SHA256 hash (from sync DB)
+	files     []string // package file list — used for Path hook triggers
 }
 
 // ------------------------------------------------------------
@@ -209,29 +209,29 @@ pub interface HookRunner {
 @[heap]
 pub struct Handle {
 pub mut:
-	root               string   // install root (--root)
-	dbpath             string   // database path (--dbpath)
-	cachedirs          []string // package cache directories (--cachedir)
-	logfile            string   // log file path (--logfile) — NOT root-relative
-	gpgdir             string   // GPG home directory (--gpgdir)
-	hookedirs          []string // hook directories (--hookdir)
-	architectures      []string // target architectures
-	siglevel           int      // default signature verification level
-	parallel_downloads int      // parallel download streams (min 1)
-	lockfile_path      string   // resolved lock file path
-	no_confirm         bool     // --noconfirm / --confirm
-	noprogressbar      bool     // --noprogressbar — suppress progress bars
-	color              string   // --color — auto, never, always
-	disable_dl_timeout bool     // --disable-download-timeout
-	debug_level        int      // --debug level (0=none, 1=basic, 2=verbose)
-	checkspace         bool     // CheckSpace — enable disk space checking
-	overwrite_files    []string // glob patterns for files that may be overwritten (--overwrite)
-	noextract          []string // glob patterns for files to never extract (NoExtract)
-	noupgrade          []string // glob patterns for files to save as .pacnew (NoUpgrade)
-	download_user      string   // user to drop privileges to for downloads
-	disable_sandbox    bool     // disable all sandboxing
-	disable_sandbox_fs bool     // disable filesystem sandboxing only
-	disable_sandbox_sys bool    // disable syscall sandboxing only
+	root                string   // install root (--root)
+	dbpath              string   // database path (--dbpath)
+	cachedirs           []string // package cache directories (--cachedir)
+	logfile             string   // log file path (--logfile) — NOT root-relative
+	gpgdir              string   // GPG home directory (--gpgdir)
+	hookedirs           []string // hook directories (--hookdir)
+	architectures       []string // target architectures
+	siglevel            int      // default signature verification level
+	parallel_downloads  int      // parallel download streams (min 1)
+	lockfile_path       string   // resolved lock file path
+	no_confirm          bool     // --noconfirm / --confirm
+	noprogressbar       bool     // --noprogressbar — suppress progress bars
+	color               string   // --color — auto, never, always
+	disable_dl_timeout  bool     // --disable-download-timeout
+	debug_level         int      // --debug level (0=none, 1=basic, 2=verbose)
+	checkspace          bool     // CheckSpace — enable disk space checking
+	overwrite_files     []string // glob patterns for files that may be overwritten (--overwrite)
+	noextract           []string // glob patterns for files to never extract (NoExtract)
+	noupgrade           []string // glob patterns for files to save as .pacnew (NoUpgrade)
+	download_user       string   // user to drop privileges to for downloads
+	disable_sandbox     bool     // disable all sandboxing
+	disable_sandbox_fs  bool     // disable filesystem sandboxing only
+	disable_sandbox_sys bool     // disable syscall sandboxing only
 }
 
 // ------------------------------------------------------------

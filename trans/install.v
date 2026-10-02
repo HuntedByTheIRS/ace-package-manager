@@ -29,7 +29,7 @@ pub fn install_package(handle &util.Handle, mut pkg db.Package, old_pkg ?&db.Pac
 		eprintln('[DEBUG] install_package: ${pkg.name}-${pkg.version} (${archive_path})')
 	}
 	if !os.exists(archive_path) {
-		return util.AceError{code: .pkg_open, message: 'package file not found: ' + archive_path}
+		return util.AceError{ code: .pkg_open, message: 'package file not found: ' + archive_path }
 	}
 
 	// Extract package files to the filesystem under handle.root.
@@ -38,12 +38,12 @@ pub fn install_package(handle &util.Handle, mut pkg db.Package, old_pkg ?&db.Pac
 	// Clear any pre-existing file list from sync DB metadata first.
 	pkg.files = db.FileList{}
 	extract_package_files(handle, archive_path, mut pkg) or {
-		return util.AceError{code: .pkg_open, message: 'extraction failed: ' + err.msg()}
+		return util.AceError{ code: .pkg_open, message: 'extraction failed: ' + err.msg() }
 	}
 
 	// Write metadata to local database
 	db.write_pkg(handle.resolved_dbpath(), pkg, 2 | 4) or {
-		return util.AceError{code: .db_write, message: 'cannot write package: ' + err.msg()}
+		return util.AceError{ code: .db_write, message: 'cannot write package: ' + err.msg() }
 	}
 }
 
@@ -69,7 +69,7 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 
 	// Pre-allocate generous file-list capacity to avoid repeated
 	// reallocation during extraction.  Most packages have < 10k files.
-	pkg.files = db.FileList{files: []db.FileInfo{cap: 10000}}
+	pkg.files = db.FileList{ files: []db.FileInfo{cap: 10000} }
 
 	mut extracted := 0
 	// Reusable read buffer — allocated once, zeroed on first use.
@@ -229,16 +229,21 @@ pub fn compute_upgrade_targets(targets []string) ![]string {
 	if targets.len == 0 { return error('no targets specified for upgrade') }
 	mut files := []string{}
 	for target in targets {
-		if target.starts_with('http://') || target.starts_with('https://') { files << target }
-		else if os.exists(target) {
+		if target.starts_with('http://') || target.starts_with('https://') {
+			files << target
+		} else if os.exists(target) {
 			if os.is_dir(target) {
 				entries := os.ls(target) or { return error('cannot list directory: ' + err.msg()) }
 				for entry in entries {
 					if entry.contains('.pkg.tar') { files << os.join_path(target, entry) }
 				}
 				if files.len == 0 { return error('no package files found in ' + target) }
-			} else { files << target }
-		} else { return error('target not found: ' + target) }
+			} else {
+				files << target
+			}
+		} else {
+			return error('target not found: ' + target)
+		}
 	}
 	if files.len == 0 { return error('no valid package files specified') }
 	return files

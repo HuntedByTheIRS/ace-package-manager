@@ -167,7 +167,10 @@ fn test_populate_pacman_metadata() {
 	mut sdb := new_sync_db()
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
-	pkg := get_pkg(&sdb, 'pacman') or { assert false, 'pacman not found'; return }
+	pkg := get_pkg(&sdb, 'pacman') or {
+		assert false, 'pacman not found'
+		return
+	}
 
 	assert pkg.name == 'pacman', 'name: ${pkg.name}'
 	assert pkg.version == '6.0.1-2', 'version: ${pkg.version}'
@@ -193,11 +196,13 @@ fn test_populate_glibc_pgp_sig() {
 	mut sdb := new_sync_db()
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
-	pkg := get_pkg(&sdb, 'glibc') or { assert false, 'glibc not found'; return }
+	pkg := get_pkg(&sdb, 'glibc') or {
+		assert false, 'glibc not found'
+		return
+	}
 
 	// Verify %PGPSIG% parsing.
-	assert pkg.base64_sig == 'iQEzBAABCgAdFiEE...glibc-sig',
-		'PGPSIG: ${pkg.base64_sig}'
+	assert pkg.base64_sig == 'iQEzBAABCgAdFiEE...glibc-sig', 'PGPSIG: ${pkg.base64_sig}'
 
 	// Verify multiple license values.
 	assert pkg.licenses.len == 2, 'licenses count: ${pkg.licenses.len}'
@@ -219,7 +224,10 @@ fn test_populate_depends() {
 	mut sdb := new_sync_db()
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
-	pkg := get_pkg(&sdb, 'pacman') or { assert false, 'pacman not found'; return }
+	pkg := get_pkg(&sdb, 'pacman') or {
+		assert false, 'pacman not found'
+		return
+	}
 
 	assert pkg.depends.len == 4, 'depends count: ${pkg.depends.len}'
 
@@ -250,7 +258,10 @@ fn test_populate_files() {
 	mut sdb := new_sync_db()
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
-	pkg := get_pkg(&sdb, 'pacman') or { assert false, 'pacman not found'; return }
+	pkg := get_pkg(&sdb, 'pacman') or {
+		assert false, 'pacman not found'
+		return
+	}
 
 	assert pkg.files.files.len == 7, 'files count: ${pkg.files.files.len}'
 	assert pkg.files.files[2].name == 'usr/bin/pacman'
@@ -267,7 +278,10 @@ fn test_populate_directory_name_fallback() {
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
 	// linux package has no %NAME%/%VERSION% in desc — falls back to dir name.
-	pkg := get_pkg(&sdb, 'linux') or { assert false, 'linux not found (fallback failed)'; return }
+	pkg := get_pkg(&sdb, 'linux') or {
+		assert false, 'linux not found (fallback failed)'
+		return
+	}
 
 	assert pkg.name == 'linux'
 	assert pkg.version == '6.1-1'
@@ -367,12 +381,15 @@ fn test_parse_desc_no_keys() {
 fn test_parse_desc_pgp_sig_extraction() {
 	mut pkg := &Package{}
 	desc := [
-		'%NAME%', 'testpkg',
-		'%VERSION%', '1.0-1',
+		'%NAME%',
+		'testpkg',
+		'%VERSION%',
+		'1.0-1',
 		'%PGPSIG%',
 		'iQEzBAABCgAdFiEE...multiline',
 		'  continuation',
-		'%FILENAME%', 'test.pkg.tar.zst',
+		'%FILENAME%',
+		'test.pkg.tar.zst',
 		'',
 	].join('\n')
 	parse_desc(mut pkg, desc)

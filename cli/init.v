@@ -111,10 +111,18 @@ pub fn init_from_args(mut args CliArgs) !InitResult {
 	//    Priority: CLI > config file > compiled-in defaults.
 	rootdir_val := if args.root != '' { args.root } else { cfg.rootdir }
 	dbpath_val := if args.dbpath != '' { args.dbpath } else { cfg.dbpath }
-	cachedirs_val := if args.cachedirs.len > 0 { args.cachedirs.clone() } else { cfg.cachedirs.clone() }
+	cachedirs_val := if args.cachedirs.len > 0 {
+		args.cachedirs.clone()
+	} else {
+		cfg.cachedirs.clone()
+	}
 	logfile_val := if args.logfile != '' { args.logfile } else { cfg.logfile }
 	gpgdir_val := if args.gpgdir != '' { args.gpgdir } else { cfg.gpgdir }
-	hookedirs_val := if args.hookdirs.len > 0 { args.hookdirs.clone() } else { cfg.hookdirs.clone() }
+	hookedirs_val := if args.hookdirs.len > 0 {
+		args.hookdirs.clone()
+	} else {
+		cfg.hookdirs.clone()
+	}
 	arch_val := if args.arch.len > 0 { args.arch.clone() } else { cfg.architectures.clone() }
 	noconfirm_val := args.noconfirm
 
@@ -129,7 +137,11 @@ pub fn init_from_args(mut args CliArgs) !InitResult {
 		hookedirs:          hookedirs_val
 		architectures:      arch_val
 		siglevel:           int(cfg.siglevel)
-		parallel_downloads: if args.parallel_downloads > 0 { args.parallel_downloads } else { cfg.parallel_downloads }
+		parallel_downloads: if args.parallel_downloads > 0 {
+			args.parallel_downloads
+		} else {
+			cfg.parallel_downloads
+		}
 		no_confirm:         noconfirm_val
 		noprogressbar:      args.noprogressbar || cfg.noprogressbar || args.debug > 0
 		color:              if args.color != '' { args.color } else { cfg.color.str() }

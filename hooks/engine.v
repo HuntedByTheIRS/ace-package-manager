@@ -246,7 +246,8 @@ fn (e &HookEngine) collect_hooks() ![]&Hook {
 	dirlen_threshold := 4096 // PATH_MAX approximation
 
 	mut hmap := map[string]&Hook{} // indexed by filename for dedup
-	mut first_err := ?IError(none) // tracks first error encountered
+	mut first_err := // tracks first error encountered
+	?IError(none)
 
 	// Walk directories in reverse order (last dir has lowest priority, so
 	// the first dir's hooks survive dedup).
@@ -432,7 +433,7 @@ fn parse_hook_file(path string) !&Hook {
 	}
 
 	mut hook := &Hook{
-		cmd: []string{}
+		cmd:     []string{}
 		depends: []string{}
 	}
 
@@ -1040,12 +1041,12 @@ fn (e &HookEngine) run_command(argv []string, stdin_data string) ! {
 fn build_shell_cmd(argv []string) string {
 	mut parts := []string{cap: argv.len}
 	for arg in argv {
-		if arg.contains(' ') || arg.contains('\t') || arg.contains('"') || arg.contains("'") ||
-			arg.contains('\\') || arg.contains('$') || arg.contains('`') || arg.contains('|') ||
-			arg.contains('&') || arg.contains(';') || arg.contains('<') || arg.contains('>') ||
-			arg.contains('(') || arg.contains(')') || arg.contains('{') || arg.contains('}') ||
-			arg.contains('*') || arg.contains('?') || arg.contains('[') || arg.contains(']') ||
-			arg.contains('!') || arg.contains('^') || arg.contains('~') || arg.len == 0 {
+		if arg.contains(' ') || arg.contains('\t') || arg.contains('"') || arg.contains("'")
+			|| arg.contains('\\') || arg.contains('$') || arg.contains('`') || arg.contains('|')
+			|| arg.contains('&') || arg.contains(';') || arg.contains('<') || arg.contains('>')
+			|| arg.contains('(') || arg.contains(')') || arg.contains('{') || arg.contains('}')
+			|| arg.contains('*') || arg.contains('?') || arg.contains('[') || arg.contains(']')
+			|| arg.contains('!') || arg.contains('^') || arg.contains('~') || arg.len == 0 {
 			// Single-quote the argument, escaping single quotes within.
 			escaped := arg.replace("'", "'\\''")
 			parts << "'" + escaped + "'"

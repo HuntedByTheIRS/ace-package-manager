@@ -116,7 +116,10 @@ fn test_populate_epoch_version() {
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
 	// pkg-epoch should have version "2:1.0-1"
-	pkg := get_pkg(&sdb, 'pkg-epoch') or { assert false, 'pkg-epoch not found'; return }
+	pkg := get_pkg(&sdb, 'pkg-epoch') or {
+		assert false, 'pkg-epoch not found'
+		return
+	}
 	assert pkg.version == '2:1.0-1', 'expected 2:1.0-1, got ${pkg.version}'
 }
 
@@ -129,7 +132,10 @@ fn test_populate_zero_epoch_version() {
 	mut sdb := new_sync_db()
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
-	pkg := get_pkg(&sdb, 'pkg-zero-epoch') or { assert false, 'pkg-zero-epoch not found'; return }
+	pkg := get_pkg(&sdb, 'pkg-zero-epoch') or {
+		assert false, 'pkg-zero-epoch not found'
+		return
+	}
 	assert pkg.version == '0:1.0-1', 'expected 0:1.0-1, got ${pkg.version}'
 }
 
@@ -142,7 +148,10 @@ fn test_populate_no_epoch_version() {
 	mut sdb := new_sync_db()
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
-	pkg := get_pkg(&sdb, 'pkg-no-epoch') or { assert false, 'pkg-no-epoch not found'; return }
+	pkg := get_pkg(&sdb, 'pkg-no-epoch') or {
+		assert false, 'pkg-no-epoch not found'
+		return
+	}
 	assert pkg.version == '1.0-1', 'expected 1.0-1, got ${pkg.version}'
 }
 
@@ -175,7 +184,10 @@ fn test_populate_epoch_dep_provides() {
 	mut sdb := new_sync_db()
 	populate(mut sdb, db_path) or { assert false, 'populate failed: ${err}' }
 
-	pkg := get_pkg(&sdb, 'libfoo') or { assert false, 'libfoo not found'; return }
+	pkg := get_pkg(&sdb, 'libfoo') or {
+		assert false, 'libfoo not found'
+		return
+	}
 	assert pkg.version == '2:1.0-1'
 	assert pkg.provides.len == 1
 	assert pkg.provides[0].name == 'libfoo.so'
@@ -194,8 +206,17 @@ fn test_epoch_version_in_local_db() {
 		panic('write desc: ${err}')
 	}
 
-	mut ldb := init(tmpdir) or { assert false; return }
-	ldb.populate() or { assert false; return }
-	pkg := ldb.get_pkg('epoch-pkg') or { assert false, 'epoch-pkg not found'; return }
+	mut ldb := init(tmpdir) or {
+		assert false
+		return
+	}
+	ldb.populate() or {
+		assert false
+		return
+	}
+	pkg := ldb.get_pkg('epoch-pkg') or {
+		assert false, 'epoch-pkg not found'
+		return
+	}
 	assert pkg.version == '2:1.0-1', 'expected 2:1.0-1, got ${pkg.version}'
 }

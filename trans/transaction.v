@@ -211,7 +211,7 @@ pub fn remove_pkg_from_trans(mut t Transaction, pkg &db.Package) ! {
 // ===========================================================================
 
 pub fn prepare(mut t Transaction) ?[]db.DepMissing {
-	util.debugln(t.util_handle, 1, "prepare: state=" + t.state.str() + " add_pkgs=" + t.add_pkgs.len.str() + " flags=" + t.flags.str())
+	util.debugln(t.util_handle, 1, 'prepare: state=' + t.state.str() + ' add_pkgs=' + t.add_pkgs.len.str() + ' flags=' + t.flags.str())
 	if t.state != .initialized {
 		return none
 	}
@@ -278,9 +278,15 @@ pub fn prepare(mut t Transaction) ?[]db.DepMissing {
 			if pkg.arch == '' || pkg.arch == 'any' { continue }
 			mut valid := false
 			for arch in t.util_handle.architectures {
-				if pkg.arch == arch { valid = true; break }
+				if pkg.arch == arch {
+					valid = true
+					break
+				}
 			}
-			if !valid { t.release(); return none }
+			if !valid {
+				t.release()
+				return none
+			}
 		}
 	}
 

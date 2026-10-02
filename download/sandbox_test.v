@@ -9,7 +9,8 @@ import util
 fn test_lookup_user_root() {
 	// root should always exist in /etc/passwd
 	pw := lookup_user('root') or {
-		assert false, 'expected to find root: ${err.msg()}'; return
+		assert false, 'expected to find root: ${err.msg()}'
+		return
 	}
 	assert pw.uid == 0
 	assert pw.gid == 0
@@ -65,9 +66,9 @@ fn test_sandbox_config_from_handle() {
 
 fn util_handle() util.Handle {
 	return util.Handle{
-		root:    '/'
-		dbpath:  '/var/lib/ace/'
-		gpgdir:  '/etc/ace/gnupg'
+		root:      '/'
+		dbpath:    '/var/lib/ace/'
+		gpgdir:    '/etc/ace/gnupg'
 		cachedirs: ['/var/cache/ace/pkg/']
 	}
 }

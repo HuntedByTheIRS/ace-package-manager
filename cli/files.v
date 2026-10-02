@@ -143,7 +143,7 @@ fn refresh_files_dbs(refresh_count int, repos []config.Repo, sync_dir string) ! 
 	}
 
 	if errors.len > 0 {
-		return error('failed to sync databases: ${errors.join("; ")}')
+		return error('failed to sync databases: ${errors.join('; ')}')
 	}
 }
 
@@ -173,14 +173,14 @@ fn repo_sync_files(repo config.Repo, sync_dir string, force bool) ! {
 
 		print('  ${treename}: downloading ${treename}.files... ')
 		dl.download(download.DownloadPayload{
-			url:            url
-			filename:       '${treename}.db'
-			dest_path:      db_path
-			force:          force
-			sig_download:   need_db_sig
-			sig_optional:   sig_optional
-			allow_resume:   false
-			max_size:       128 * 1024 * 1024 // 128 MiB hard limit
+			url:          url
+			filename:     '${treename}.db'
+			dest_path:    db_path
+			force:        force
+			sig_download: need_db_sig
+			sig_optional: sig_optional
+			allow_resume: false
+			max_size:     128 * 1024 * 1024 // 128 MiB hard limit
 		}) or {
 			print('failed (${err.msg()})\n')
 			last_db_err = err
@@ -209,7 +209,7 @@ fn load_sync_dbs_files(repos []config.Repo, sync_dir string) ![]&db.Database {
 	result_ch := chan DBResult{cap: repos.len}
 
 	for repo in repos {
-		go fn [repo, sync_dir, result_ch]() {
+		go fn [repo, sync_dir, result_ch] () {
 			// Try .files database first (from -Fy), fall back to .db (from -Sy).
 			mut db_path := os.join_path(sync_dir, '${repo.name}.files')
 			if !os.exists(db_path) {
@@ -217,9 +217,9 @@ fn load_sync_dbs_files(repos []config.Repo, sync_dir string) ![]&db.Database {
 			}
 			if !os.exists(db_path) {
 				result_ch <- DBResult{
-					database: unsafe { nil }
+					database:  unsafe { nil }
 					repo_name: repo.name
-					err_msg: '${repo.name}: database not found'
+					err_msg:   '${repo.name}: database not found'
 				}
 				return
 			}
@@ -227,9 +227,9 @@ fn load_sync_dbs_files(repos []config.Repo, sync_dir string) ![]&db.Database {
 			mut sdb := db.new_sync_db()
 			db.populate(mut sdb, db_path) or {
 				result_ch <- DBResult{
-					database: unsafe { nil }
+					database:  unsafe { nil }
 					repo_name: repo.name
-					err_msg: '${repo.name}: ${err.msg()}'
+					err_msg:   '${repo.name}: ${err.msg()}'
 				}
 				return
 			}
@@ -261,11 +261,11 @@ fn load_sync_dbs_files(repos []config.Repo, sync_dir string) ![]&db.Database {
 	}
 
 	if result.len == 0 {
-		return error('no databases could be loaded: ${errors.join("; ")}')
+		return error('no databases could be loaded: ${errors.join('; ')}')
 	}
 
 	if errors.len > 0 {
-		eprintln(warn('some databases failed to load: ${errors.join("; ")}'))
+		eprintln(warn('some databases failed to load: ${errors.join('; ')}'))
 	}
 
 	return result

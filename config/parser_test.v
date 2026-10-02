@@ -277,7 +277,7 @@ fn test_parse_include() {
 	defer { teardown() }
 	mirrorlist := test_dir + '/mirrorlist'
 	write_cfg(mirrorlist, 'Server = http://mirror.example.com/\$repo/os/\$arch\n')
-	
+
 	cfg_path := test_dir + '/include_test.conf'
 	write_cfg(cfg_path, '[core]\nInclude = ' + mirrorlist + '\n')
 	cfg := parse_ini(cfg_path) or { panic('parse failed: ${err}') }
@@ -295,10 +295,10 @@ fn test_parse_nested_include() {
 	defer { teardown() }
 	level2 := test_dir + '/level2.conf'
 	write_cfg(level2, 'Server = http://nested.example.com/\$repo/\$arch\n')
-	
+
 	level1 := test_dir + '/level1.conf'
 	write_cfg(level1, 'Include = ' + level2 + '\n')
-	
+
 	cfg_path := test_dir + '/nested_include.conf'
 	write_cfg(cfg_path, '[test]\nInclude = ' + level1 + '\n')
 	cfg := parse_ini(cfg_path) or { panic('parse failed: ${err}') }
@@ -315,7 +315,7 @@ fn test_parse_include_with_inline_server() {
 	defer { teardown() }
 	mirrorlist := test_dir + '/mirrorlist2'
 	write_cfg(mirrorlist, 'Server = http://included.example.com/\$repo/os/\$arch\n')
-	
+
 	cfg_path := test_dir + '/mixed_include.conf'
 	write_cfg(cfg_path, '[core]\nInclude = ' + mirrorlist + '\nServer = http://inline.example.com/\$repo/os/\$arch\n')
 	cfg := parse_ini(cfg_path) or { panic('parse failed: ${err}') }
@@ -365,7 +365,7 @@ fn test_parse_full_config() {
 	defer { teardown() }
 	mirrorlist := test_dir + '/mirrorlist'
 	write_cfg(mirrorlist, 'Server = http://community.example.com/\$repo/os/\$arch\n')
-	
+
 	path := test_dir + '/full.conf'
 	write_cfg(path, '# Ace configuration file
 [options]
@@ -505,7 +505,7 @@ fn test_parse_section_with_whitespace() {
 	setup()
 	defer { teardown() }
 	path := test_dir + '/section_ws.conf'
-	write_cfg(path, "[options]\n\n[ myrepo ]\nServer = http://example.com/\n")
+	write_cfg(path, '[options]\n\n[ myrepo ]\nServer = http://example.com/\n')
 	cfg := parse_ini(path) or { panic('parse failed: ${err}') }
 	assert cfg.repos[0].name == 'myrepo'
 }

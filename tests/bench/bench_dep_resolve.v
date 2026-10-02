@@ -170,7 +170,7 @@ fn main() {
 	println('')
 
 	// Sort benchmarks
-    mut ms := bench_sort_install(100)
+	mut ms := bench_sort_install(100)
 	println('  sort/install (100 linear):  ${ms:5} ms')
 
 	ms = bench_sort_remove(100)
@@ -183,10 +183,10 @@ fn main() {
 	println('  sort/diamond (100 leaves):  ${ms:5} ms')
 
 	ms = bench_sort_tree(5, 4)
-	println('  sort/tree (depth=5,w=4):    ${ms:5} ms (${5*4} pkgs)')
+	println('  sort/tree (depth=5,w=4):    ${ms:5} ms (${5 * 4} pkgs)')
 
 	ms = bench_sort_tree(10, 5)
-	println('  sort/tree (depth=10,w=5):   ${ms:5} ms (${10*5} pkgs)')
+	println('  sort/tree (depth=10,w=5):   ${ms:5} ms (${10 * 5} pkgs)')
 
 	// Resolve benchmarks
 	ms = bench_resolve_basic(10, 100)

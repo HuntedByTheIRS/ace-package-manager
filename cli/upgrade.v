@@ -10,23 +10,23 @@ import util
 
 // is_pkg_file checks whether a filename matches a known Arch package extension.
 fn is_pkg_file(name string) bool {
-	return name.ends_with('.pkg.tar.zst') ||
-		name.ends_with('.pkg.tar.xz') ||
-		name.ends_with('.pkg.tar.gz') ||
-		name.ends_with('.pkg.tar.bz2') ||
-		name.ends_with('.pkg.tar.lz4') ||
-		name.ends_with('.pkg.tar.lzo') ||
-		name.ends_with('.pkg.tar.lrz') ||
-		name.ends_with('.pkg.tar.Z') ||
-		(name.ends_with('.pkg.tar') &&
-			!name.ends_with('.pkg.tar.zst') &&
-			!name.ends_with('.pkg.tar.xz') &&
-			!name.ends_with('.pkg.tar.gz') &&
-			!name.ends_with('.pkg.tar.bz2') &&
-			!name.ends_with('.pkg.tar.lz4') &&
-			!name.ends_with('.pkg.tar.lzo') &&
-			!name.ends_with('.pkg.tar.lrz') &&
-			!name.ends_with('.pkg.tar.Z'))
+	return name.ends_with('.pkg.tar.zst')
+		|| name.ends_with('.pkg.tar.xz')
+		|| name.ends_with('.pkg.tar.gz')
+		|| name.ends_with('.pkg.tar.bz2')
+		|| name.ends_with('.pkg.tar.lz4')
+		|| name.ends_with('.pkg.tar.lzo')
+		|| name.ends_with('.pkg.tar.lrz')
+		|| name.ends_with('.pkg.tar.Z')
+		|| (name.ends_with('.pkg.tar')
+			&& !name.ends_with('.pkg.tar.zst')
+			&& !name.ends_with('.pkg.tar.xz')
+			&& !name.ends_with('.pkg.tar.gz')
+			&& !name.ends_with('.pkg.tar.bz2')
+			&& !name.ends_with('.pkg.tar.lz4')
+			&& !name.ends_with('.pkg.tar.lzo')
+			&& !name.ends_with('.pkg.tar.lrz')
+			&& !name.ends_with('.pkg.tar.Z'))
 }
 
 pub fn run_upgrade(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
@@ -60,7 +60,7 @@ pub fn run_upgrade(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 		}
 	}
 	if collect_errors.len > 0 {
-		eprintln(warn('some targets could not be processed: ${collect_errors.join("; ")}'))
+		eprintln(warn('some targets could not be processed: ${collect_errors.join('; ')}'))
 	}
 	if pkgfiles.len == 0 { return error('no valid package files') }
 	if args.print {
@@ -79,7 +79,10 @@ pub fn run_upgrade(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 		}
 		return
 	}
-	if !confirm_upgrade(pkgfiles, &local_db, args.noconfirm) { println('cancelled'); return }
+	if !confirm_upgrade(pkgfiles, &local_db, args.noconfirm) {
+		println('cancelled')
+		return
+	}
 
 	// Run pre-transaction hooks.
 	mut pre_pkgs := []&util.Package{}
@@ -109,45 +112,102 @@ pub fn run_upgrade(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 	mut errors := []string{}
 	mut installed_pkgs := []&db.Package{}
 	for _, pkgfile in pkgfiles {
-		pkgmeta := archive.load_pkg_full(pkgfile) or { errors << pkgfile + ': ' + err.msg(); continue }
-		mut db_pkg := &db.Package{
-			filename: pkgfile
-			name: pkgmeta.name
-			name_hash: db.compute_name_hash(pkgmeta.name)
-			version: pkgmeta.version
-			base: pkgmeta.base
-			desc: pkgmeta.desc
-			url: pkgmeta.url
-			packager: pkgmeta.packager
-			arch: pkgmeta.arch
-			build_date: pkgmeta.build_date
-			isize: pkgmeta.isize
-			licenses: pkgmeta.licenses
-			groups: pkgmeta.groups
-			scriptlet: pkgmeta.scriptlet
-			origin: .local_db
+		pkgmeta := archive.load_pkg_full(pkgfile) or {
+			errors << pkgfile + ': ' + err.msg()
+			continue
 		}
-		for b in pkgmeta.backup { db_pkg.backup << db.BackupFile{name: b.name, hash: b.hash} }
-		for f in pkgmeta.files.files { db_pkg.files.files << db.FileInfo{name: f.name, size: f.size, mode: f.mode} }
+		mut db_pkg := &db.Package{
+			filename:   pkgfile
+			name:       pkgmeta.name
+			name_hash:  db.compute_name_hash(pkgmeta.name)
+			version:    pkgmeta.version
+			base:       pkgmeta.base
+			desc:       pkgmeta.desc
+			url:        pkgmeta.url
+			packager:   pkgmeta.packager
+			arch:       pkgmeta.arch
+			build_date: pkgmeta.build_date
+			isize:      pkgmeta.isize
+			licenses:   pkgmeta.licenses
+			groups:     pkgmeta.groups
+			scriptlet:  pkgmeta.scriptlet
+			origin:     .local_db
+		}
+		for b in pkgmeta.backup { db_pkg.backup << db.BackupFile{ name: b.name, hash: b.hash } }
+		for f in pkgmeta.files.files {
+			db_pkg.files.files << db.FileInfo{ name: f.name, size: f.size, mode: f.mode }
+		}
 		// Copy dependency metadata from archive — required for future
 		// -R, -Qd, -Qi, and dep resolution on the installed package.
-		for d in pkgmeta.depends      { db_pkg.depends << db.Dependency{
-			name: d.name, version: d.version, desc: d.desc, modifier: db.DepMod(d.modifier), name_hash: d.name_hash } }
-		for d in pkgmeta.optdepends   { db_pkg.optdepends << db.Dependency{
-			name: d.name, version: d.version, desc: d.desc, modifier: db.DepMod(d.modifier), name_hash: d.name_hash } }
-		for d in pkgmeta.conflicts    { db_pkg.conflicts << db.Dependency{
-			name: d.name, version: d.version, desc: d.desc, modifier: db.DepMod(d.modifier), name_hash: d.name_hash } }
-		for d in pkgmeta.provides     { db_pkg.provides << db.Dependency{
-			name: d.name, version: d.version, desc: d.desc, modifier: db.DepMod(d.modifier), name_hash: d.name_hash } }
-		for d in pkgmeta.replaces     { db_pkg.replaces << db.Dependency{
-			name: d.name, version: d.version, desc: d.desc, modifier: db.DepMod(d.modifier), name_hash: d.name_hash } }
-		for d in pkgmeta.makedepends  { db_pkg.makedepends << db.Dependency{
-			name: d.name, version: d.version, desc: d.desc, modifier: db.DepMod(d.modifier), name_hash: d.name_hash } }
-		for d in pkgmeta.checkdepends { db_pkg.checkdepends << db.Dependency{
-			name: d.name, version: d.version, desc: d.desc, modifier: db.DepMod(d.modifier), name_hash: d.name_hash } }
+		for d in pkgmeta.depends {
+			db_pkg.depends << db.Dependency{
+				name:      d.name
+				version:   d.version
+				desc:      d.desc
+				modifier:  db.DepMod(d.modifier)
+				name_hash: d.name_hash
+			}
+		}
+		for d in pkgmeta.optdepends {
+			db_pkg.optdepends << db.Dependency{
+				name:      d.name
+				version:   d.version
+				desc:      d.desc
+				modifier:  db.DepMod(d.modifier)
+				name_hash: d.name_hash
+			}
+		}
+		for d in pkgmeta.conflicts {
+			db_pkg.conflicts << db.Dependency{
+				name:      d.name
+				version:   d.version
+				desc:      d.desc
+				modifier:  db.DepMod(d.modifier)
+				name_hash: d.name_hash
+			}
+		}
+		for d in pkgmeta.provides {
+			db_pkg.provides << db.Dependency{
+				name:      d.name
+				version:   d.version
+				desc:      d.desc
+				modifier:  db.DepMod(d.modifier)
+				name_hash: d.name_hash
+			}
+		}
+		for d in pkgmeta.replaces {
+			db_pkg.replaces << db.Dependency{
+				name:      d.name
+				version:   d.version
+				desc:      d.desc
+				modifier:  db.DepMod(d.modifier)
+				name_hash: d.name_hash
+			}
+		}
+		for d in pkgmeta.makedepends {
+			db_pkg.makedepends << db.Dependency{
+				name:      d.name
+				version:   d.version
+				desc:      d.desc
+				modifier:  db.DepMod(d.modifier)
+				name_hash: d.name_hash
+			}
+		}
+		for d in pkgmeta.checkdepends {
+			db_pkg.checkdepends << db.Dependency{
+				name:      d.name
+				version:   d.version
+				desc:      d.desc
+				modifier:  db.DepMod(d.modifier)
+				name_hash: d.name_hash
+			}
+		}
 		old_pkg := if existing := local_db.pkgcache[pkgmeta.name] { existing } else { none }
 		println(heading('Installing ${pkgmeta.name}...'))
-		trans.install_package(handle, mut db_pkg, old_pkg) or { errors << pkgfile + ': ' + err.msg(); continue }
+		trans.install_package(handle, mut db_pkg, old_pkg) or {
+			errors << pkgfile + ': ' + err.msg()
+			continue
+		}
 		local_db.pkgcache[db_pkg.name] = db_pkg
 		installed_pkgs << db_pkg
 

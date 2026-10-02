@@ -71,7 +71,7 @@ fn test_validate_package_checksum_mismatch() {
 		arch:      'x86_64'
 		sha256sum: '0000000000000000000000000000000000000000000000000000000000000000'
 	}
-	validate_package(&handle, path, &pkg, 	int(0)) or {
+	validate_package(&handle, path, &pkg, int(0)) or {
 		assert err.msg().contains('checksum mismatch')
 		return
 	}
@@ -86,7 +86,10 @@ fn test_validate_package_checksum_match() {
 		os.rm(path) or {}
 	}
 
-	hash := util.sha256sum(path) or { assert false, err.msg(); return }
+	hash := util.sha256sum(path) or {
+		assert false, err.msg()
+		return
+	}
 
 	pkg := util.Package{
 		name:      'test-pkg'
@@ -94,7 +97,7 @@ fn test_validate_package_checksum_match() {
 		arch:      'x86_64'
 		sha256sum: hash
 	}
-	validate_package(&handle, path, &pkg, 	int(0)) or {
+	validate_package(&handle, path, &pkg, int(0)) or {
 		assert false, 'expected no error: ${err.msg()}'
 		return
 	}
@@ -115,7 +118,7 @@ fn test_validate_package_no_expected_hash() {
 		arch:    'x86_64'
 		// sha256sum is empty — no expected hash to compare
 	}
-	validate_package(&handle, path, &pkg, 	int(0)) or {
+	validate_package(&handle, path, &pkg, int(0)) or {
 		assert false, 'expected no error: ${err.msg()}'
 		return
 	}
@@ -153,8 +156,9 @@ fn test_verify_signature_siglevel_never() {
 		name:    'test-pkg'
 		version: '1.0-1'
 	}
-	result := verify_package_signature(&handle, '', &pkg, 	int(0)) or {
-		assert false, 'expected no error: ${err.msg()}'; return
+	result := verify_package_signature(&handle, '', &pkg, int(0)) or {
+		assert false, 'expected no error: ${err.msg()}'
+		return
 	}
 	assert result.success
 }
@@ -162,13 +166,14 @@ fn test_verify_signature_siglevel_never() {
 fn test_verify_signature_missing_optional() {
 	handle := make_handle()
 	// Optional siglevel (without Required) — missing sig is OK.
-	siglevel := 	int(1) // optional = 1
+	siglevel := int(1) // optional = 1
 	pkg := util.Package{
 		name:    'test-pkg'
 		version: '1.0-1'
 	}
 	result := verify_package_signature(&handle, '/tmp/nonexistent', &pkg, siglevel) or {
-		assert false, 'expected no error for missing optional sig: ${err.msg()}'; return
+		assert false, 'expected no error for missing optional sig: ${err.msg()}'
+		return
 	}
 	assert result.success
 }
@@ -176,16 +181,15 @@ fn test_verify_signature_missing_optional() {
 fn test_verify_signature_missing_required() {
 	handle := make_handle()
 	// Required siglevel but no .sig file.
-	siglevel := 	int(2) // required = 2
+	siglevel := int(2) // required = 2
 	pkg := util.Package{
 		name:    'test-pkg'
 		version: '1.0-1'
 	}
 	result := verify_package_signature(&handle, '/tmp/nonexistent', &pkg, siglevel) or {
-		assert false, 'expected non-error result (success=false)'; return
+		assert false, 'expected non-error result (success=false)'
+		return
 	}
 	assert !result.success
 	assert result.err_msg.contains('missing required PGP signature')
 }
-
-

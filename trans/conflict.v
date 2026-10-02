@@ -78,7 +78,7 @@ pub fn check_inner_conflicts(targets []&db.Package) []db.Conflict {
 					conflicts << db.Conflict{
 						package1: a.name
 						package2: targets[j].name
-						reason: &db.Dependency{
+						reason:   &db.Dependency{
 							name:      dep.name
 							name_hash: dep.name_hash
 							version:   dep.version
@@ -97,7 +97,7 @@ pub fn check_inner_conflicts(targets []&db.Package) []db.Conflict {
 					conflicts << db.Conflict{
 						package1: b.name
 						package2: a.name
-						reason: &db.Dependency{
+						reason:   &db.Dependency{
 							name:      dep.name
 							name_hash: dep.name_hash
 							version:   dep.version
@@ -115,7 +115,7 @@ pub fn check_inner_conflicts(targets []&db.Package) []db.Conflict {
 						conflicts << db.Conflict{
 							package1: a.name
 							package2: b.name
-							reason: &db.Dependency{
+							reason:   &db.Dependency{
 								name:      pa.name
 								name_hash: pa.name_hash
 								version:   pa.version
@@ -169,7 +169,7 @@ pub fn check_outer_conflicts(targets []&db.Package, localdb &db.Database) []db.C
 					conflicts << db.Conflict{
 						package1: t.name
 						package2: installed.name
-						reason: &db.Dependency{
+						reason:   &db.Dependency{
 							name:      dep.name
 							name_hash: dep.name_hash
 							version:   dep.version
@@ -187,7 +187,7 @@ pub fn check_outer_conflicts(targets []&db.Package, localdb &db.Database) []db.C
 					conflicts << db.Conflict{
 						package1: installed.name
 						package2: t.name
-						reason: &db.Dependency{
+						reason:   &db.Dependency{
 							name:      dep.name
 							name_hash: dep.name_hash
 							version:   dep.version

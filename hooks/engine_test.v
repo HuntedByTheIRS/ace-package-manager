@@ -68,7 +68,7 @@ fn test_wordsplit_simple() {
 }
 
 fn test_wordsplit_quoted() {
-	argv := wordsplit("prog 'single quoted' \"double quoted\"") or {
+	argv := wordsplit('prog \'single quoted\' "double quoted"') or {
 		assert false, 'wordsplit failed: ${err}'
 		return
 	}
@@ -234,14 +234,14 @@ fn test_trigger_match_basic() {
 	hook := &Hook{
 		triggers: [
 			Trigger{
-				typ: .package
-				op: HookOp.install
+				typ:     .package
+				op:      HookOp.install
 				targets: ['linux*']
 			},
 		]
 	}
 
-    assert is_triggered(hook, add_pkgs, remove_pkgs) == true
+	assert is_triggered(hook, add_pkgs, remove_pkgs) == true
 }
 
 fn test_trigger_match_no_match() {
@@ -254,14 +254,14 @@ fn test_trigger_match_no_match() {
 	hook := &Hook{
 		triggers: [
 			Trigger{
-				typ: .package
-				op: HookOp.install
+				typ:     .package
+				op:      HookOp.install
 				targets: ['linux*']
 			},
 		]
 	}
 
-    assert is_triggered(hook, add_pkgs, remove_pkgs) == false
+	assert is_triggered(hook, add_pkgs, remove_pkgs) == false
 }
 
 fn test_trigger_match_remove_operation() {
@@ -274,14 +274,14 @@ fn test_trigger_match_remove_operation() {
 	hook := &Hook{
 		triggers: [
 			Trigger{
-				typ: .package
-				op: HookOp.remove
+				typ:     .package
+				op:      HookOp.remove
 				targets: ['nvidia*']
 			},
 		]
 	}
 
-    assert is_triggered(hook, add_pkgs, remove_pkgs) == true
+	assert is_triggered(hook, add_pkgs, remove_pkgs) == true
 }
 
 fn test_trigger_match_remove_no_match() {
@@ -295,33 +295,33 @@ fn test_trigger_match_remove_no_match() {
 	hook := &Hook{
 		triggers: [
 			Trigger{
-				typ: .package
-				op: HookOp.remove
+				typ:     .package
+				op:      HookOp.remove
 				targets: ['nvidia*']
 			},
 		]
 	}
 
-    assert is_triggered(hook, add_pkgs, remove_pkgs) == false
+	assert is_triggered(hook, add_pkgs, remove_pkgs) == false
 }
 
 fn test_trigger_match_needs_targets() {
-	add_pkgs := [&util.Package{name: 'linux-6.8'}, &util.Package{name: 'linux-firmware'}]
+	add_pkgs := [&util.Package{ name: 'linux-6.8' }, &util.Package{ name: 'linux-firmware' }]
 	remove_pkgs := []&util.Package{}
 
 	hook := &Hook{
 		needs_targets: true
-		triggers: [
+		triggers:      [
 			Trigger{
-				typ: .package
-				op: HookOp.install
+				typ:     .package
+				op:      HookOp.install
 				targets: ['linux*']
 			},
 		]
 	}
 
-    assert is_triggered(hook, add_pkgs, remove_pkgs) == true
-    assert hook.matches.len == 2
-    assert 'linux-6.8' in hook.matches
-    assert 'linux-firmware' in hook.matches
+	assert is_triggered(hook, add_pkgs, remove_pkgs) == true
+	assert hook.matches.len == 2
+	assert 'linux-6.8' in hook.matches
+	assert 'linux-firmware' in hook.matches
 }

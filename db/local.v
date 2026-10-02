@@ -243,13 +243,15 @@ fn read_package(pkg_dir string, dir_name string) !&Package {
 	// Read desc file and directly populate pkg fields via unsafe
 	desc_path := os.join_path(pkg_dir, 'desc')
 	if os.exists(desc_path) {
-		read_desc_into(mut pkg, desc_path) or { /* best-effort */ }
+		read_desc_into(mut pkg, desc_path) or { /* best-effort */
+		}
 	}
 
 	// Read files file and directly populate pkg fields via unsafe
 	files_path := os.join_path(pkg_dir, 'files')
 	if os.exists(files_path) {
-		read_files_into(mut pkg, files_path) or { /* best-effort */ }
+		read_files_into(mut pkg, files_path) or { /* best-effort */
+		}
 	}
 
 	return pkg
@@ -467,7 +469,7 @@ fn read_desc_into(mut pkg Package, path string) ! {
 					i++
 					if val.len == 0 { break }
 					if eq_pos := val.index('=') {
-						xdata << XData{name: val[..eq_pos], value: val[eq_pos + 1..]}
+						xdata << XData{ name: val[..eq_pos], value: val[eq_pos + 1..] }
 					}
 				}
 				pkg.xdata = xdata
@@ -518,11 +520,11 @@ fn read_files_into(mut pkg Package, path string) ! {
 			file_infos << FileInfo{ name: trimmed }
 		} else if in_backup {
 			if tab_pos := trimmed.index('\t') {
-				backups << BackupFile{name: trimmed[..tab_pos], hash: trimmed[tab_pos + 1..]}
+				backups << BackupFile{ name: trimmed[..tab_pos], hash: trimmed[tab_pos + 1..] }
 			} else if space_pos := trimmed.last_index(' ') {
-				backups << BackupFile{name: trimmed[..space_pos], hash: trimmed[space_pos + 1..]}
+				backups << BackupFile{ name: trimmed[..space_pos], hash: trimmed[space_pos + 1..] }
 			} else {
-				backups << BackupFile{name: trimmed, hash: ''}
+				backups << BackupFile{ name: trimmed, hash: '' }
 			}
 		}
 	}

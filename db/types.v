@@ -10,11 +10,11 @@ module db
 // DepMod matches alpm_depmod_t from libalpm.
 pub enum DepMod {
 	any = 1
-	eq = 2
-	ge = 3
-	le = 4
-	gt = 5
-	lt = 6
+	eq  = 2
+	ge  = 3
+	le  = 4
+	gt  = 5
+	lt  = 6
 }
 
 // Dependency represents a package dependency with an optional version
@@ -196,7 +196,7 @@ pub enum PackageReason {
 
 // PackageOrigin indicates where a package was loaded from.
 pub enum PackageOrigin {
-	file    = 1
+	file     = 1
 	local_db = 2
 	sync_db  = 3
 }

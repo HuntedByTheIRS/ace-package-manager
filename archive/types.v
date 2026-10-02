@@ -160,27 +160,27 @@ pub enum PackageOrigin {
 // them during parsing.
 pub struct Package {
 pub mut:
-	name        string
-	name_hash   u64
-	version     string
-	base        string
-	desc        string
-	url         string
-	packager    string
-	arch        string
-	build_date  i64
-	isize       i64
-	licenses    []string
-	replaces    []Dependency
-	groups      []string
-	backup      []BackupFile
-	depends     []Dependency
-	optdepends  []Dependency
-	makedepends []Dependency
+	name         string
+	name_hash    u64
+	version      string
+	base         string
+	desc         string
+	url          string
+	packager     string
+	arch         string
+	build_date   i64
+	isize        i64
+	licenses     []string
+	replaces     []Dependency
+	groups       []string
+	backup       []BackupFile
+	depends      []Dependency
+	optdepends   []Dependency
+	makedepends  []Dependency
 	checkdepends []Dependency
-	conflicts   []Dependency
-	provides    []Dependency
-	files       FileList
-	origin      PackageOrigin
-	scriptlet   bool
+	conflicts    []Dependency
+	provides     []Dependency
+	files        FileList
+	origin       PackageOrigin
+	scriptlet    bool
 }
