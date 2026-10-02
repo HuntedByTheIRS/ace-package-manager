@@ -16,7 +16,7 @@ import os
 // The C helper (gpgme_helper.c) provides type‑safe cast wrappers for APIs
 // where voidptr → gpgme_data_t* isn't valid C.
 #flag -lgpgme
-#flag /home/specter/Projects/ace/lib/gpgme_helper.c
+#flag @VMODROOT/lib/gpgme_helper.c
 #include <gpgme.h>
 
 // ---------------------------------------------------------------------------
