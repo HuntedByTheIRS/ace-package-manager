@@ -1157,6 +1157,12 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	display_pkgs := trans.get_add_pkgs(&t)
 
 	if display_pkgs.len == 0 {
+		// prepare() calls release() (which empties add_pkgs) when it rejects
+		// the package set, e.g. on an architecture mismatch.  Targets that
+		// resolved a moment ago must not turn into a silent success.
+		if pkg_targets.len > 0 {
+			return error('transaction aborted: ${pkg_targets.len} target(s) resolved, none of them installable')
+		}
 		println(' there is nothing to do')
 		return
 	}
@@ -1307,7 +1313,20 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 
 		if payloads.len > 0 {
 			println(heading_str('Downloading packages...'))
-			download_parallel_files(payloads, cfg.parallel_downloads)
+			failed, stale_dbs := download_parallel_files(payloads, cfg.parallel_downloads)
+			// A package that never arrived cannot be installed, and installing
+			// only the ones that did leaves a root whose local database claims
+			// packages whose files were never unpacked — the state that boots
+			// with missing shared libraries.  pacman's rule is to abort the
+			// transaction before it touches the filesystem, and so do we.
+			if failed > 0 && !args.download_only {
+				hint := if stale_dbs {
+					' (the mirrors returned 404: the sync databases are stale, re-run with -Sy)'
+				} else {
+					''
+				}
+				return error('${failed}/${payloads.len} package downloads failed; aborting before installing anything${hint}')
+			}
 		}
 	}
 
@@ -1433,6 +1452,10 @@ struct DLResult {
 	idx      int
 	filename string
 	ok       bool
+	// msg carries the failure reason (HTTP status, socket error, …) so the
+	// caller can explain why a package never arrived; it was previously
+	// dropped on the floor and the user only ever saw "FAILED".
+	msg string
 }
 
 // DLProg carries per-file download progress updates from goroutines.
@@ -1446,9 +1469,9 @@ struct DLProg {
 // per active download.  A semaphore limits concurrency (pre-fetched
 // tokens prevent slot leaks on panic).  Progress is collected from each
 // goroutine and rendered as multi-line ANSI bars.
-fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloads int) {
+fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloads int) (int, bool) {
 	if payloads.len == 0 {
-		return
+		return 0, false
 	}
 
 	max_conc := if parallel_downloads > 0 { parallel_downloads } else { 7 }
@@ -1488,11 +1511,13 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 			}
 
 			mut download_ok := false
+			mut dl_err := ''
 			defer {
 				result_ch <- DLResult{
 					idx:      i
 					filename: ''
 					ok:       download_ok
+					msg:      dl_err
 				}
 				// Signal completion with 100%.
 				prog_ch <- DLProg{
@@ -1510,7 +1535,10 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 					}
 				}
 			})
-			dl.download(payload) or { return }
+			dl.download(payload) or {
+				dl_err = err.msg()
+				return
+			}
 			download_ok = true
 		}()
 	}
@@ -1522,6 +1550,9 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 
 	mut completed := 0
 	mut failures := 0
+	// stale_dbs is set when a server answered 404: the sync database points
+	// at a package revision the mirror no longer carries.
+	mut stale_dbs := false
 
 	redraw_bars := fn [disp_names, prog_map, done_map, total, max_conc, mut bar_lines] () {
 		// Count active downloads.
@@ -1594,7 +1625,13 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 				bar_lines = 0
 				if !r.ok {
 					failures++
-					print('\r\033[K  ${disp_names[r.idx]} ${warn('FAILED')}\n')
+					// See the note on `done_idx` above.
+					mut err_idx := r.idx
+					if r.msg.contains('404') {
+						stale_dbs = true
+					}
+					reason := if r.msg != '' { ': ${r.msg}' } else { '' }
+					print('\r\033[K  ${disp_names[err_idx]} ${warn('FAILED')}${reason}\n')
 				} else {
 					print('\r\033[K  ${disp_names[r.idx]} ${ok('done')}\n')
 				}
@@ -1628,7 +1665,12 @@ fn download_parallel_files(payloads []download.DownloadPayload, parallel_downloa
 
 	if failures > 0 {
 		eprintln(warn('${failures}/${total} downloads failed'))
+		if stale_dbs {
+			eprintln(warn('the mirrors returned 404 Not Found: the sync databases point at revisions they no longer carry — re-run with -Sy'))
+		}
 	}
+
+	return failures, stale_dbs
 }
 
 // progress_bar_str renders a colored progress bar like "[#####-----]  47%".
