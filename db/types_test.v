@@ -75,27 +75,27 @@ fn test_dependency_to_string_any_mod() {
 }
 
 fn test_dependency_to_string_eq() {
-	dep := Dependency.from_string('python=3.12') or { panic('parse failed: ${err}') }
+	dep := Dependency.from_string('python=3.12') or { panic('parse failed: invalid dependency specifier') }
 	assert dep.to_string() == 'python=3.12'
 }
 
 fn test_dependency_to_string_ge() {
-	dep := Dependency.from_string('glibc>=2.35') or { panic('parse failed: ${err}') }
+	dep := Dependency.from_string('glibc>=2.35') or { panic('parse failed: invalid dependency specifier') }
 	assert dep.to_string() == 'glibc>=2.35'
 }
 
 fn test_dependency_to_string_le() {
-	dep := Dependency.from_string('foo<=1.0') or { panic('parse failed: ${err}') }
+	dep := Dependency.from_string('foo<=1.0') or { panic('parse failed: invalid dependency specifier') }
 	assert dep.to_string() == 'foo<=1.0'
 }
 
 fn test_dependency_to_string_gt() {
-	dep := Dependency.from_string('bar>0.5') or { panic('parse failed: ${err}') }
+	dep := Dependency.from_string('bar>0.5') or { panic('parse failed: invalid dependency specifier') }
 	assert dep.to_string() == 'bar>0.5'
 }
 
 fn test_dependency_to_string_lt() {
-	dep := Dependency.from_string('baz<0.9') or { panic('parse failed: ${err}') }
+	dep := Dependency.from_string('baz<0.9') or { panic('parse failed: invalid dependency specifier') }
 	assert dep.to_string() == 'baz<0.9'
 }
 
@@ -117,7 +117,7 @@ fn test_dependency_to_string_roundtrip() {
 	]
 	for input in inputs {
 		dep := Dependency.from_string(input) or {
-			assert false, 'roundtrip parse failed for "${input}": ${err}'
+			assert false, 'roundtrip parse failed for "${input}": invalid dependency specifier'
 			continue
 		}
 		serialized := dep.to_string()
