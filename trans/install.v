@@ -47,6 +47,13 @@ pub fn install_package(handle &util.Handle, mut pkg db.Package, old_pkg ?&db.Pac
 	}
 }
 
+// HardLink is a pending hard link whose target was not on disk yet when its
+// archive entry was seen (tar allows the link to precede its target).
+struct HardLink {
+	dest   string // path to create
+	target string // already extracted path to link to
+}
+
 // extract_package_files extracts the contents of a .pkg.tar.* archive
 // to the filesystem under handle.root.  Metadata entries (path prefixed
 // with '.') are skipped — they belong to the package DB, not the filesystem.
@@ -55,8 +62,8 @@ pub fn install_package(handle &util.Handle, mut pkg db.Package, old_pkg ?&db.Pac
 // later operations (-R, -Ql, -Qk) have the complete file list even when
 // the sync database did not include file metadata.
 //
-// Handles directories, regular files, and symlinks.  File permissions
-// and symlink targets are preserved from the archive metadata.
+// Handles directories, regular files, symlinks, and hard links.  File
+// permissions and symlink targets are preserved from the archive metadata.
 fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Package) ! {
 	if handle.debug_level > 0 {
 		eprintln('[DEBUG] extract_package_files: opening ${archive_path}')
@@ -76,6 +83,9 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 	// Avoids ~1000+ small allocations per package for the old per-file
 	// buf := []u8{len: 8192} inside the loop.
 	mut read_buf := []u8{len: 8192}
+	// Hard links whose target had not been extracted yet when the entry was
+	// seen.  Resolved after the loop.
+	mut deferred_links := []HardLink{}
 
 	// Single-pass extraction — no separate counting pass.
 	// The first pass in the old code decompressed every entry just to
@@ -147,6 +157,32 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 				return error('cannot create symlink ${dest_path} -> ${target}: ${err}')
 			}
 			r.skip_data() or {}
+		} else if entry.is_hardlink() {
+			// Hard link entry: the payload lives in another entry of the same
+			// archive (libarchive reports these with filetype 0 and a target
+			// path).  Create a real hard link so both names share one inode —
+			// ncurses alone ships ~1000 terminfo entries this way.
+			target_rel := entry.hardlink()
+			target_path := os.join_path(handle.root, target_rel)
+			parent_dir := dest_path.all_before_last('/')
+			if parent_dir != '' && !os.exists(parent_dir) {
+				os.mkdir_all(parent_dir) or {
+					r.skip_data() or {}
+					return error('cannot create parent dir ${parent_dir}: ${err}')
+				}
+			}
+			if os.exists(dest_path) {
+				os.rm(dest_path) or {}
+			}
+			os.link(target_path, dest_path) or {
+				// Target not on disk yet — retry once the whole archive has
+				// been walked.
+				deferred_links << HardLink{
+					dest:   dest_path
+					target: target_path
+				}
+			}
+			r.skip_data() or {}
 		} else if entry.is_file() {
 			// Ensure parent directory exists.
 			parent_dir := dest_path.all_before_last('/')
@@ -199,6 +235,22 @@ fn extract_package_files(handle &util.Handle, archive_path string, mut pkg db.Pa
 
 	if extracted > 0 {
 		println('\r  ' + color_progress('extracted ${extracted} files'))
+	}
+
+	// Resolve hard links that referenced an entry appearing later in the
+	// archive.  A link whose target never materialised means the package is
+	// malformed — report it instead of leaving the file missing.
+	if deferred_links.len > 0 {
+		mut failed := []string{}
+		for link in deferred_links {
+			os.link(link.target, link.dest) or {
+				failed << '${link.dest} -> ${link.target} (${err})'
+				continue
+			}
+		}
+		if failed.len > 0 {
+			return error('cannot create hard links: ${failed.join('; ')}')
+		}
 	}
 }
 
