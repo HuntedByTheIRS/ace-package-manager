@@ -5,6 +5,7 @@ module cli
 
 import db
 import os
+import trans
 import util
 
 pub fn run_deptree(args &CliArgs, handle &util.Handle) ! {
@@ -60,7 +61,7 @@ fn print_dep_tree(deps []db.Dependency, local_db &db.LocalDB, prefix string, mut
 		child_prefix := prefix + if last { '    ' } else { '│   ' }
 
 		dep_str := format_dep_verbose(dep)
-		if child := local_db.pkgcache[dep.name] {
+		if child := find_installed_satisfier(local_db, dep) {
 			// Check version satisfaction.
 			sat := dep_satisfied_by(child, dep)
 			sat_str := if sat {
@@ -68,7 +69,15 @@ fn print_dep_tree(deps []db.Dependency, local_db &db.LocalDB, prefix string, mut
 			} else {
 				warn_str(' [installed ${child.version} does not satisfy]')
 			}
-			println('${prefix}${connector}${dep_str}${sat_str} ${info_str(child)}')
+			// Say so when the dependency is met through the provider list
+			// rather than the package name (e.g. libreadline.so=8-64 → readline),
+			// otherwise the tree looks like it resolved by name.
+			via := if child.name != dep.name {
+				' ' + dim_str('(provides ${dep.name})')
+			} else {
+				''
+			}
+			println('${prefix}${connector}${dep_str}${sat_str} ${info_str(child)}${via}')
 			if !(dep.name in visited) {
 				visited[dep.name] = true
 				// Recurse into child's required deps only.
@@ -118,18 +127,29 @@ fn info_str(pkg &db.Package) string {
 // dep_satisfied_by checks whether an installed package satisfies a dependency's
 // version constraint.
 fn dep_satisfied_by(pkg &db.Package, dep db.Dependency) bool {
-	if dep.modifier == .any || dep.version == '' {
-		return true
+	return trans.dep_satisfies(pkg, &dep)
+}
+
+// find_installed_provider returns the installed package that provides the
+// dependency's name (e.g. readline for libreadline.so=8-64), or none.
+fn find_installed_provider(local_db &db.LocalDB, dep db.Dependency) ?&db.Package {
+	for _, pkg in local_db.pkgcache {
+		for prov in pkg.provides {
+			if prov.name == dep.name {
+				return pkg
+			}
+		}
 	}
-	cmp := util.vercmp(pkg.version, dep.version)
-	return match dep.modifier {
-		.eq { cmp == 0 }
-		.ge { cmp >= 0 }
-		.le { cmp <= 0 }
-		.gt { cmp > 0 }
-		.lt { cmp < 0 }
-		.any { true }
+	return none
+}
+
+// find_installed_satisfier returns the installed package that satisfies the
+// dependency, whether it matches by name or through its provides list.
+fn find_installed_satisfier(local_db &db.LocalDB, dep db.Dependency) ?&db.Package {
+	if pkg := local_db.pkgcache[dep.name] {
+		return pkg
 	}
+	return find_installed_provider(local_db, dep)
 }
 
 // format_dep_verbose formats a dependency with name, version constraint,
