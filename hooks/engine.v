@@ -103,11 +103,6 @@ pub mut:
 	handle      &util.Handle
 	add_pkgs    []&util.Package
 	remove_pkgs []&util.Package
-	// Cached hook definitions — populated on first collect_hooks() call
-	// and reused for all subsequent run_hooks() invocations within the
-	// same transaction.  Avoids re-reading and re-parsing every .hook
-	// file from disk per package.
-	cached_hooks []&Hook
 }
 
 // new_hook_engine creates a HookEngine bound to a util.Handle.
@@ -172,15 +167,14 @@ pub fn (mut e HookEngine) run_post(pkgs []&util.Package) ! {
 //
 // Reference: _alpm_hook_run() (hook.c:528-679)
 pub fn (mut e HookEngine) run_hooks(when HookWhen) ! {
-	// Parse hooks once per transaction — subsequent calls (e.g.
-	// per-package post-install hooks) reuse the cached result.
-	all_hooks := if e.cached_hooks.len > 0 {
-		e.cached_hooks
-	} else {
-		parsed := e.collect_hooks() or { return }
-		e.cached_hooks = parsed
-		parsed
-	}
+	// Collect on every phase.  A hook file shipped by a package installed
+	// earlier in this same transaction has to be visible to the
+	// post-transaction phase: mkinitcpio is pulled in by the kernel package
+	// and its 90-mkinitcpio-install.hook is what generates
+	// /boot/vmlinuz-linux and /boot/initramfs-linux.img.  Caching the hook
+	// list from the pre-transaction phase hid exactly those hooks, so
+	// installing a kernel generated no initramfs at all.
+	all_hooks := e.collect_hooks() or { return }
 
 	// Sort hooks by filename for deterministic order.
 	// Reference: _alpm_hook_cmp (hook.c:439-451)
@@ -219,13 +213,7 @@ pub fn (mut e HookEngine) run_hooks(when HookWhen) ! {
 // trigger.  Callers can use this to decide whether collecting package
 // file lists (potentially expensive) is necessary at all.
 pub fn (mut e HookEngine) has_path_triggers() bool {
-	all_hooks := if e.cached_hooks.len > 0 {
-		e.cached_hooks
-	} else {
-		parsed := e.collect_hooks() or { return false }
-		e.cached_hooks = parsed
-		parsed
-	}
+	all_hooks := e.collect_hooks() or { return false }
 	for hook in all_hooks {
 		for t in hook.triggers {
 			if t.typ == .path {
