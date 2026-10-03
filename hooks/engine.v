@@ -1035,17 +1035,17 @@ fn (e &HookEngine) run_command(argv []string, stdin_data string) ! {
 	// command runs, so inside the root when we are about to chroot into it.
 	if stdin_data != '' {
 		tmp := if chrooted {
-			os.join_path(root, 'tmp/ace_hook_stdin_${os.getpid()}')
+			os.join_path(root, 'tmp', file)
 		} else {
-			os.join_path(os.temp_dir(), 'ace_hook_stdin_${os.getpid()}')
+			os.join_path(os.temp_dir(), file)
 		}
 		os.mkdir_all(os.dir(tmp)) or {}
 		os.write_file(tmp, stdin_data) or {
 			return error('hooks: cannot write stdin temp file: ${err}')
 		}
-		defer { os.rm(tmp) or {} }
+		staged = tmp
 		// Inside the chroot the file is addressed relative to the root.
-		visible := if chrooted { '/tmp/' + os.base(tmp) } else { tmp }
+		visible := if chrooted { '/tmp/' + file } else { tmp }
 		cmd_str = '${cmd_str} < ${os.quoted_path(visible)}'
 	}
 
@@ -1057,7 +1057,29 @@ fn (e &HookEngine) run_command(argv []string, stdin_data string) ! {
 				message: 'hooks: cannot run "${prog}" inside ${root}: ${shell} does not exist yet'
 			}
 		}
-		cmd_str = 'chroot ${os.quoted_path(root)} /bin/sh -c ${os.quoted_path(cmd_str)}'
+		// A hook shipped by an Arch package expects a live system, not a bare
+		// directory tree: mkinitcpio's install script pipes the preset through
+		// `install -Dm644 /dev/stdin` (a symlink into /proc/self/fd) and
+		// systemd-tmpfiles refuses to run at all without /proc.  Provide
+		// proc, sys, dev and run inside the root for the duration of the
+		// command — in a private mount namespace, so the mounts vanish with
+		// the process and neither the host nor the new root is left with
+		// anything mounted.
+		abs := os.abs_path(root)
+		inner := [
+			'mkdir -p ${os.quoted_path(abs)}/proc ${os.quoted_path(abs)}/sys ${os.quoted_path(abs)}/dev ${os.quoted_path(abs)}/run',
+			'mount -t proc proc ${os.quoted_path(abs)}/proc 2>/dev/null',
+			'mount -t sysfs sys ${os.quoted_path(abs)}/sys 2>/dev/null',
+			'mount --bind /dev ${os.quoted_path(abs)}/dev 2>/dev/null',
+			'mount --bind /run ${os.quoted_path(abs)}/run 2>/dev/null',
+			// The command starts with `cd /`: hook scripts receive paths
+			// relative to the root (depmod's script tests
+			// "${f}modules.order"), and chroot(1) leaves the caller's cwd
+			// untouched — which for ace is the directory the user ran it
+			// from, a path that does not exist inside the new root.
+			'exec chroot ${os.quoted_path(abs)} /bin/sh -c ${os.quoted_path('cd /; ' + cmd_str)}',
+		].join('; ')
+		cmd_str = 'unshare --mount --propagation private /bin/sh -c ${os.quoted_path(inner)}'
 	}
 
 	result := os.execute(cmd_str + ' 2>&1')
@@ -1084,7 +1106,18 @@ fn build_shell_cmd(argv []string) string {
 			escaped := arg.replace("'", "'\\''")
 			parts << "'" + escaped + "'"
 		} else {
+	//
+	// The path and the cleanup defer are declared here, at function scope:
+	// a `defer` inside the block below would fire when that block exits,
+	// deleting the file before the command that reads it ever started.
+	mut staged := ''
+	defer {
+		if staged != '' {
+			os.rm(staged) or {}
+		}
+	}
 			parts << arg
+		file := 'ace_hook_stdin_${os.getpid()}'
 		}
 	}
 	return parts.join(' ')
