@@ -1352,8 +1352,9 @@ fn sync_install_or_upgrade(args &CliArgs, syncdbs []&db.Database, cfg &config.Co
 	}
 
 	// 13a. Run pre-transaction hooks before any package installation.
-	// Create the hook engine once — cached_hooks avoids re-parsing .hook
-	// files from disk for every subsequent per-package post-install call.
+	// One engine for the whole transaction; it re-reads the hook directories
+	// on every phase, so hooks shipped by packages installed below are
+	// picked up by the post-transaction phase.
 	mut hook_engine := hooks.new_hook_engine(handle)
 	run_pre_hooks(mut hook_engine, display_pkgs, []&db.Package{})
 
