@@ -48,13 +48,19 @@ pub fn run_files(args &CliArgs) ! {
 	needs_lock := args.files_refresh > 0
 
 	mut lf := LockFile{}
+	// Deferred at function scope — see the note in cli/sync.v: a defer inside
+	// the `if` below would release the lock as soon as that block exits.
+	mut locked := false
+	defer {
+		if locked {
+			lf.release()
+		}
+	}
 	if needs_lock {
 		lf.acquire(dbpath) or {
 			return error('cannot lock database at ${dbpath}: ${err}')
 		}
-		defer {
-			lf.release()
-		}
+		locked = true
 	}
 
 	// 4. Ensure sync database directory exists.

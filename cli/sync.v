@@ -51,13 +51,20 @@ pub fn run_sync(args &CliArgs, cfg &config.Config, handle &util.Handle) ! {
 		&& !args.print
 
 	mut lf := LockFile{}
+	// The release has to be deferred at function scope: a `defer` written
+	// inside the `if` below runs when that block exits, which would drop the
+	// lock before any of the work it is meant to protect.
+	mut locked := false
+	defer {
+		if locked {
+			lf.release()
+		}
+	}
 	if needs_lock {
 		lf.acquire(dbpath) or {
 			return error('cannot lock database at ${dbpath}: ${err}')
 		}
-		defer {
-			lf.release()
-		}
+		locked = true
 	}
 
 	// 4. Ensure sync database directory exists.
