@@ -676,7 +676,7 @@ fn match_path_trigger(hook &Hook, t Trigger, add_pkgs []&util.Package, remove_pk
 	if int(t.op) & (int(HookOp.install) | int(HookOp.upgrade)) != 0 {
 		for pkg in add_pkgs {
 			for f in pkg.files {
-				if match_any_path(t.targets, f) {
+				if match_path_targets(t.targets, f) {
 					if hook.needs_targets {
 						install << f
 					} else {
@@ -691,7 +691,7 @@ fn match_path_trigger(hook &Hook, t Trigger, add_pkgs []&util.Package, remove_pk
 	if int(t.op) & int(HookOp.remove) != 0 {
 		for pkg in remove_pkgs {
 			for f in pkg.files {
-				if match_any_path(t.targets, f) {
+				if match_path_targets(t.targets, f) {
 					if hook.needs_targets {
 						remove << f
 					} else {
@@ -714,23 +714,84 @@ fn match_path_trigger(hook &Hook, t Trigger, add_pkgs []&util.Package, remove_pk
 	return false
 }
 
-// match_any_path returns true if `path` matches any of the trigger
-// targets.  Directory targets (trailing '/') use prefix matching; all
-// other targets are fnmatch globs.
-fn match_any_path(patterns []string, path string) bool {
-	clean_path := path.trim_left('/')
-	for raw_pattern in patterns {
-		pattern := raw_pattern.trim_left('/')
-		if pattern.ends_with('/') {
-			dir := pattern[..pattern.len - 1]
-			if clean_path == dir || clean_path.starts_with(pattern) {
-				return true
+// match_path_targets reports whether `path` satisfies a trigger's target list.
+//
+// Targets may be negated with a leading '!': a path that matches a negated
+// target is excluded, and each path is judged on its own — that is how the
+// depmod hook expresses "a new kernel directory appeared, but do not fire for
+// the files inside an existing one":
+//
+//   Target = usr/lib/modules/*/
+//   Target = !usr/lib/modules/*/?*
+//
+// Matching wildcards never cross a '/', as with fnmatch(3) and FNM_PATHNAME.
+// Treating '!' as a literal character (the old behaviour) meant the depmod
+// hook never fired at all, so a built root had no modules.dep and mkinitcpio
+// resolved no kernel modules.
+//
+// Reference: _alpm_hook_trigger_match_file() (hook.c:299-357)
+fn match_path_targets(patterns []string, path string) bool {
+	clean := path.trim_left('/')
+	mut hit := false
+	for raw in patterns {
+		negated := raw.starts_with('!')
+		pat := if negated { raw[1..] } else { raw }
+		p := pat.trim_left('/')
+		matched := if p.ends_with('/') {
+			// A directory target covers that directory entry, and literal
+			// directories also cover their contents so hooks keep working for
+			// packages whose file list omits a parent directory.
+			fnmatch_path(p, clean) || (!has_glob(p) && clean.starts_with(p))
+		} else {
+			fnmatch_path(p, clean)
+		}
+		if matched {
+			if negated {
+				return false
 			}
-		} else if fnmatch(pattern, clean_path) {
-			return true
+			hit = true
 		}
 	}
-	return false
+	return hit
+}
+
+// has_glob reports whether a pattern carries wildcard characters.
+fn has_glob(pattern string) bool {
+	return pattern.contains('*') || pattern.contains('?') || pattern.contains('[')
+}
+
+// fnmatch_path matches a glob against a path in which no wildcard crosses a
+// '/' (fnmatch(3) with FNM_PATHNAME).  Matching component-wise gives exactly
+// those semantics while reusing the tested fnmatch() for each component.
+fn fnmatch_path(pattern string, path string) bool {
+	psegs := pattern.split('/')
+	fsegs := path.split('/')
+	if psegs.len != fsegs.len {
+		return false
+	}
+	for i in 0 .. psegs.len {
+		if !fnmatch(psegs[i], fsegs[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// match_pkg_targets reports whether a package name satisfies a trigger's
+// target list, honouring '!'-negated targets.
+fn match_pkg_targets(patterns []string, name string) bool {
+	mut hit := false
+	for raw in patterns {
+		negated := raw.starts_with('!')
+		pat := if negated { raw[1..] } else { raw }
+		if fnmatch(pat, name) {
+			if negated {
+				return false
+			}
+			hit = true
+		}
+	}
+	return hit
 }
 
 // match_pkg_trigger checks a single Package-type trigger against the
@@ -747,7 +808,7 @@ fn match_pkg_trigger(hook &Hook, t Trigger, add_pkgs []&util.Package, remove_pkg
 	// --- Check add packages for Install/Upgrade ---
 	if int(t.op) & (int(HookOp.install) | int(HookOp.upgrade)) != 0 {
 		for pkg in add_pkgs {
-			if match_any_pattern(t.targets, pkg.name) {
+			if match_pkg_targets(t.targets, pkg.name) {
 				if hook.needs_targets {
 					install << pkg.name
 				} else {
@@ -760,7 +821,7 @@ fn match_pkg_trigger(hook &Hook, t Trigger, add_pkgs []&util.Package, remove_pkg
 	// --- Check remove packages for Remove ---
 	if int(t.op) & int(HookOp.remove) != 0 {
 		for pkg in remove_pkgs {
-			if match_any_pattern(t.targets, pkg.name) {
+			if match_pkg_targets(t.targets, pkg.name) {
 				if hook.needs_targets {
 					remove << pkg.name
 				} else {
@@ -779,16 +840,6 @@ fn match_pkg_trigger(hook &Hook, t Trigger, add_pkgs []&util.Package, remove_pkg
 		return install.len > 0 || remove.len > 0
 	}
 
-	return false
-}
-
-// match_any_pattern returns true if `name` matches any of the glob patterns.
-fn match_any_pattern(patterns []string, name string) bool {
-	for pattern in patterns {
-		if fnmatch(pattern, name) {
-			return true
-		}
-	}
 	return false
 }
 
@@ -1033,7 +1084,18 @@ fn (e &HookEngine) run_command(argv []string, stdin_data string) ! {
 	// Hooks that declare NeedsTargets=true get the matched names on stdin
 	// (newline separated).  The file has to be readable from wherever the
 	// command runs, so inside the root when we are about to chroot into it.
+	//
+	// The path and the cleanup defer are declared here, at function scope:
+	// a `defer` inside the block below would fire when that block exits,
+	// deleting the file before the command that reads it ever started.
+	mut staged := ''
+	defer {
+		if staged != '' {
+			os.rm(staged) or {}
+		}
+	}
 	if stdin_data != '' {
+		file := 'ace_hook_stdin_${os.getpid()}'
 		tmp := if chrooted {
 			os.join_path(root, 'tmp', file)
 		} else {
@@ -1106,18 +1168,7 @@ fn build_shell_cmd(argv []string) string {
 			escaped := arg.replace("'", "'\\''")
 			parts << "'" + escaped + "'"
 		} else {
-	//
-	// The path and the cleanup defer are declared here, at function scope:
-	// a `defer` inside the block below would fire when that block exits,
-	// deleting the file before the command that reads it ever started.
-	mut staged := ''
-	defer {
-		if staged != '' {
-			os.rm(staged) or {}
-		}
-	}
 			parts << arg
-		file := 'ace_hook_stdin_${os.getpid()}'
 		}
 	}
 	return parts.join(' ')
